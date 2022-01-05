@@ -1,8 +1,10 @@
 
 import dataclasses
+
 from nr.pylang.utils.singletons import NotSet
+
 from ._authentication import authentication
-from ._endpoint import endpoint, Path, ParamKind
+from ._endpoint import ParamKind, Path, endpoint
 from ._service import Argument, Service
 
 
@@ -35,7 +37,7 @@ class ATestService:
 
 def test_a_test_service():
   service = Service.from_class(ATestService)
-  from ._authentication import OAuth2BearerAuthenticationMethod, BasicAuthenticationMethod, NoAuthenticationMethod
+  from ._authentication import BasicAuthenticationMethod, NoAuthenticationMethod, OAuth2BearerAuthenticationMethod
   from ._service import Endpoint
   assert service.authentication_methods == [OAuth2BearerAuthenticationMethod()]
   assert service.endpoints == [

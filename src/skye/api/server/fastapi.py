@@ -1,14 +1,16 @@
 
-import databind.json
 import logging
 import textwrap
 import typing as t
+
+import databind.json
 import fastapi
-from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
 from nr.pylang.utils.singletons import NotSet
 from skye.api.runtime.exceptions import ServiceException
-from ..runtime import HandlerMixin, Service, Endpoint, AuthenticationMethod, ParamKind
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
+
+from ..runtime import AuthenticationMethod, Endpoint, HandlerMixin, ParamKind, Service
 
 logger = logging.getLogger(__name__)
 HandlerFactory = t.Union[t.Type[HandlerMixin], t.Callable[[], HandlerMixin]]

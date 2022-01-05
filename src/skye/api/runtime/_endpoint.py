@@ -6,7 +6,8 @@ import typing as t
 
 from beartype import beartype
 from nr.pylang.utils.singletons import NotSet
-from ._utils import add_annotation, T, Annotateable
+
+from ._utils import Annotateable, T, add_annotation
 
 
 @dataclasses.dataclass(repr=False)

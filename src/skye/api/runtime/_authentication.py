@@ -5,8 +5,9 @@ import dataclasses
 import typing as t
 
 from starlette.requests import Request
+
+from ._utils import Annotateable, T, add_annotation
 from .exceptions import UnauthorizedError
-from ._utils import add_annotation, T, Annotateable
 
 
 @dataclasses.dataclass

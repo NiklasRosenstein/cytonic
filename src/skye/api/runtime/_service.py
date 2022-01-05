@@ -4,11 +4,11 @@ import inspect
 import types
 import typing as t
 
-import dataclasses
 from nr.pylang.utils.singletons import NotSet
+
 from ._authentication import AuthenticationAnnotation, AuthenticationMethod
 from ._endpoint import EndpointAnnotation, Param, ParamKind, Path
-from ._utils import add_annotation, get_annotation, get_annotations, Annotateable
+from ._utils import Annotateable, add_annotation, get_annotation, get_annotations
 
 T = t.TypeVar('T')
 

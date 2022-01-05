@@ -3,6 +3,7 @@ import typing as t
 
 from starlette.requests import Request
 from starlette.responses import Response
+
 from ._authentication import Authorization
 from ._service import Service
 
