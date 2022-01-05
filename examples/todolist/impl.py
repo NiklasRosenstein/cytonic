@@ -7,7 +7,7 @@ from starlette.responses import Response
 
 from skye.api.runtime import HandlerMixin, Authorization, BearerToken
 from skye.api.runtime.exceptions import UnauthorizedError
-from ..generated.todolist import TodoListServiceAsync, TodoListNotFoundError, TodoList, TodoItem
+from .generated import TodoListServiceAsync, TodoListNotFoundError, TodoList, TodoItem
 
 _users = {
   'eY123.123': 'John Wick',

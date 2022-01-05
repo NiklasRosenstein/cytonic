@@ -43,7 +43,7 @@ errors:
 
 And can be used to generated Python code:
 
-    $ python -m skye.api todolist-api/src/*.yml --prefix todolist/src --package todolist.generated
+    $ python -m skye.api todolist-api/src/*.yml --prefix todolist/src --module todolist.generated
     Generated todolist/src/todolist/generated/__init__.py
     Generated todolist/src/todolist/generated/todolist_service.py
     Generated todolist/src/todolist/generated/todolist_types.py
