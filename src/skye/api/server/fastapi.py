@@ -13,7 +13,6 @@ from ..runtime import AuthenticationMethod, Endpoint, ParamKind, Service, Creden
 from ..runtime.exceptions import ServiceException
 
 logger = logging.getLogger(__name__)
-HandlerFactory = t.Union[t.Type, t.Callable[[], t.Any]]
 
 # TODO (@nrosenstein): If FastAPI request parameter validation fails, it returns some JSON that indicates
 #   the error details. We should try to catch this error payload and wrap it into a ServiceException to
@@ -32,12 +31,11 @@ async def extract_authorization(
 class SkyeAPIRouter(fastapi.APIRouter):
   """ Router for service implementations defined with the Skye runtime API. """
 
-  def __init__(self, handler_factory: HandlerFactory, service_config: Service | None = None, **kwargs: t.Any) -> None:
+  def __init__(self, handler: t.Any, service_config: Service | None = None, **kwargs: t.Any) -> None:
     super().__init__(**kwargs)
-    service_config = Service.from_class(handler_factory, True) if isinstance(handler_factory, type) else service_config
     if service_config is None:
-      raise RuntimeError('missing service_config when factory function is provided')
-    self._handler_factory = handler_factory
+      service_config = Service.from_class(type(handler), True)
+    self._handler = handler
     self._service_config = service_config
     self._init_router()
 
@@ -64,12 +62,13 @@ class SkyeAPIRouter(fastapi.APIRouter):
 
     # TODO (@nrosenstein): De-serialize parameters using databind.json instead of relying on the default?
 
+    # TODO (@nrosenstein): Support non-async handlers?
+
     authorization_methods = self._service_config.authentication_methods + endpoint.authentication_methods
 
     async def _dispatcher(request: Request, **kwargs):
-      handler = self._handler_factory()
       try:
-        response = await getattr(handler, endpoint.name)(**kwargs)
+        response = await getattr(self._handler, endpoint.name)(**kwargs)
         response = self._serialize_value(response, endpoint.return_type)
       except ServiceException as exc:
         response = self._handle_exception(exc)

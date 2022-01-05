@@ -1,0 +1,21 @@
+name: Users
+description: User management service.
+endpoints:
+  get_user:
+    http: GET /users/{id}
+    return: User
+  me:
+    http: GET /users/me
+    return: User
+auth:
+  type: oauth2_bearer
+types:
+  User:
+    fields:
+      id: string
+      email: string
+errors:
+  UserNotFound:
+    error_code: NOT_FOUND
+    fields:
+      user_id: string

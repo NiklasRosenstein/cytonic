@@ -4,6 +4,8 @@ Define APIs and generated Pythonic client/server code.
 
 ## Quickstart
 
+Check out the [examples/todolist](examples/todolist) folder.
+
 APIs are defined as YAML files:
 
 ```yml
