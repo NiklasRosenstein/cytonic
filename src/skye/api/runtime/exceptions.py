@@ -46,16 +46,16 @@ class ServiceException(Exception):
     return result
 
 
-class UnauthorizedError(Exception):
+class UnauthorizedError(ServiceException):
   ERROR_CODE = 'UNAUTHORIZED'
   ERROR_NAME = 'Default:Unauthorized'
 
 
-class NotFoundError(Exception):
+class NotFoundError(ServiceException):
   ERROR_CODE = 'NOT_FOUND'
   ERROR_NAME = 'Default:NotFound'
 
 
-class ConflictError(Exception):
+class ConflictError(ServiceException):
   ERROR_CODE = 'CONFLICT'
   ERROR_NAME = 'Default:Conflict'

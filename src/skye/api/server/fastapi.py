@@ -1,12 +1,18 @@
 
+import databind.json
+import logging
+import sys
 import textwrap
 import typing as t
-import databind.json
 from fastapi import APIRouter
 from starlette.requests import Request
-from ..runtime import Context, ServerMixin, Endpoint, AuthenticationMethod
+from starlette.responses import JSONResponse, Response
 
-ServerMixinFactory = t.Callable[[Context], ServerMixin] | t.Type[ServerMixin]
+from skye.api.runtime.exceptions import ServiceException, UnauthorizedError
+from ..runtime import HandlerMixin, Service, Endpoint, AuthenticationMethod
+
+logger = logging.getLogger(__name__)
+HandlerFactory = t.Callable[[], HandlerMixin] | t.Type[HandlerMixin]
 
 
 async def extract_authorization(
@@ -20,10 +26,12 @@ async def extract_authorization(
 class SkyeAPIRouter(APIRouter):
   """ Router for service implementations defined with the Skye runtime API. """
 
-  def __init__(self, server: ServerMixin, **kwargs: t.Any) -> None:
+  def __init__(self, handler_factory: HandlerFactory, service_config: Service | None = None, **kwargs: t.Any) -> None:
     super().__init__(**kwargs)
-    self._server = server
-    self._service_config = server.service_config
+    self._handler_factory = handler_factory
+    self._service_config = handler_factory.service_config if isinstance(handler_factory, type) else service_config
+    if self._service_config is None:
+      raise RuntimeError('missing service_config when factory function is provided')
     self._init_router()
 
   def _serialize_value(self, value: t.Any, type_: t.Any | None) -> t.Any:
@@ -52,13 +60,22 @@ class SkyeAPIRouter(APIRouter):
     authorization_methods = self._service_config.authentication_methods + endpoint.authentication_methods
 
     async def _dispatcher(request: Request, **kwargs):
-      context = Context(
-        request=request,
-        authorization=await extract_authorization(authorization_methods, request)
-      )
-      server = self._server(context)
-      result = await getattr(server, endpoint.name)(**kwargs)
-      return self._serialize_value(result, endpoint.return_type)
+      authorization = await extract_authorization(authorization_methods, request)
+      handler = self._handler_factory()
+      try:
+        response = await handler.before_request(request, authorization)
+        if response is None:
+          # TODO (@nrosenstein): Automatically convert to a response
+          response = await getattr(handler, endpoint.name)(**kwargs)
+          response = self._serialize_value(response, endpoint.return_type)
+        response = await handler.after_request(response) or response
+      except ServiceException as exc:
+        response = self._handle_exception(exc)
+      except:
+        logger.exception('Uncaught exception in %s', endpoint.name)
+        response = self._handle_exception(ServiceException())
+
+      return response
 
     # Generate code to to tell FastAPI which parameters this endpoint accepts.
     # TODO (@nrosenstein): support other parameter types (like query/header/cookie).
@@ -76,3 +93,11 @@ class SkyeAPIRouter(APIRouter):
       _handler.__annotations__['return'] = endpoint.return_type
 
     return _handler
+
+  def _handle_exception(self, exc: ServiceException) -> Response:
+    status_codes = {
+      'UNAUTHORIZED': 403,
+      'NOT_FOUND': 404,
+      'CONFLICT': 409,
+    }
+    return JSONResponse(exc.safe_dict(), status_code=status_codes.get(exc.ERROR_CODE, 500))

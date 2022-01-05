@@ -43,13 +43,23 @@ class BasicAuth:
   password: str
 
 
+@dataclasses.dataclass(frozen=True)
+class Authorization:
+  value: t.Any | None
+
+  def cast(self, of_type: t.Type[T]) -> T:
+    if isinstance(self.value, of_type):
+      return self.value
+    raise RuntimeError(f'{type(self.value).__name__} is not of type {of_type.__name__}')
+
+
 class AuthenticationMethod(abc.ABC):
   """
   Interface for authentication methods that must extract credentials from a request.
   """
 
   @abc.abstractmethod
-  async def extract_credentials(self, request: Request) -> t.Any | None:
+  async def extract_credentials(self, request: Request) -> Authorization | None:
     """
     Extract the credentials from the request. Raise an #UnauthorizedError if no credentials are provided.
     It is not the responsibility of this method to ensure the validity of the provided credentials, only
@@ -66,14 +76,14 @@ class OAuth2BearerAuthenticationMethod(AuthenticationMethod):
   def __init__(self, header_name: str = 'Authorization') -> None:
     self.header_name = header_name
 
-  async def extract_credentials(self, request: Request) -> t.Any | None:
+  async def extract_credentials(self, request: Request) -> Authorization | None:
     header_value: str | None = request.headers.get(self.header_name)
     if not header_value:
       raise UnauthorizedError('missing Authorization header')
     scheme, header_value, *_ = header_value.split(maxsplit=2) + ['']
     if scheme.lower() != 'bearer':
       raise UnauthorizedError('bad Authorization scheme')
-    return BearerToken(header_value)
+    return Authorization(BearerToken(header_value))
 
 
 @dataclasses.dataclass
@@ -82,7 +92,7 @@ class BasicAuthenticationMethod(AuthenticationMethod):
   Extracts HTTP Basic authentication credentials from the request.
   """
 
-  async def extract_credentials(self, request: Request) -> t.Any | None:
+  async def extract_credentials(self, request: Request) -> Authorization | None:
     header_value: str | None = request.headers.get("Authorization")
     if not header_value:
       raise UnauthorizedError('missing Authorization header')
@@ -96,13 +106,13 @@ class BasicAuthenticationMethod(AuthenticationMethod):
     except (ValueError, UnicodeDecodeError):
       raise UnauthorizedError('bad Authorization header value')
     username, password = decoded.split(':')
-    return BasicAuth(username, password)
+    return Authorization(BasicAuth(username, password))
 
 
 @dataclasses.dataclass
 class NoAuthenticationMethod(AuthenticationMethod):
 
-  async def extract_credentials(self, request: Request) -> t.Any | None:
+  async def extract_credentials(self, request: Request) -> Authorization | None:
     return None
 
 

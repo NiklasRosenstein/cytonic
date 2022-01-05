@@ -5,10 +5,13 @@ from skye.api.runtime import authentication, endpoint
 from skye.api.runtime.exceptions import NotFoundError
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class TodoListNotFoundError(NotFoundError):
   ERROR_NAME = 'TodoList:TodoListNotFound'
   list_id: str
+
+  def __post_init__(self) -> None:
+    super().__init__()
 
 
 @dataclasses.dataclass
