@@ -13,6 +13,10 @@ from ..runtime import HandlerMixin, Service, Endpoint, AuthenticationMethod, Par
 logger = logging.getLogger(__name__)
 HandlerFactory = t.Union[t.Type[HandlerMixin], t.Callable[[], HandlerMixin]]
 
+# TODO (@nrosenstein): If FastAPI request parameter validation fails, it returns some JSON that indicates
+#   the error details. We should try to catch this error payload and wrap it into a ServiceException to
+#   ensure that a consistent error format is returned to clients.
+
 
 async def extract_authorization(
   authentication_methods: t.Iterable[AuthenticationMethod],
@@ -79,7 +83,6 @@ class SkyeAPIRouter(fastapi.APIRouter):
 
       return response
 
-    print(endpoint.name)
     # Generate code to to tell FastAPI which parameters this endpoint accepts.
     args = ', '.join(a for a in endpoint.args)
     kwargs = ', '.join(f'{a}={a}' for a in endpoint.args)
@@ -96,14 +99,13 @@ class SkyeAPIRouter(fastapi.APIRouter):
 
     defaults = []
     for arg in endpoint.args.values():
-      default = None if arg.default is NotSet.Value else arg.default
-      required = arg.default is not NotSet.Value
+      default = ... if arg.default is NotSet.Value else arg.default
       if arg.kind == ParamKind.cookie:
-        value = fastapi.Cookie(default, required=required)
+        value = fastapi.Cookie(default, alias=arg.name)
       elif arg.kind == ParamKind.query:
-        value = fastapi.Query(default, required=required)
+        value = fastapi.Query(default, alias=arg.name)
       elif arg.kind == ParamKind.header:
-        value = fastapi.Header(default, required=required)
+        value = fastapi.Header(default, alias=arg.name)
       else:
         continue
       defaults.append(value)

@@ -8,7 +8,30 @@ import dataclasses
 from nr.pylang.utils.singletons import NotSet
 from ._authentication import AuthenticationAnnotation, AuthenticationMethod
 from ._endpoint import EndpointAnnotation, Param, ParamKind, Path
-from ._utils import get_annotation, get_annotations
+from ._utils import add_annotation, get_annotation, get_annotations, Annotateable
+
+T = t.TypeVar('T')
+
+
+@dataclasses.dataclass
+class ServiceAnnotation:
+  """ Annotation for service classes. """
+  name: str
+
+
+def service(name: str) -> t.Callable[[T], T]:
+  """ Decorator for service classes. """
+
+  def _decorator(obj: T) -> T:
+    add_annotation(
+      t.cast(Annotateable, obj),
+      ServiceAnnotation,
+      ServiceAnnotation(name),
+      front=True,
+    )
+    return obj
+
+  return _decorator
 
 
 @dataclasses.dataclass
@@ -34,6 +57,7 @@ class Endpoint:
 class Service:
   """ Represents the compiled information about a service from a class definition. """
 
+  name: str
   authentication_methods: list[AuthenticationMethod]
   endpoints: list[Endpoint]
 
@@ -47,13 +71,15 @@ class Service:
       **{e.name: e for e in other.endpoints},
     }
     return Service(
+      other.name,
       list(authentication_methods.values()),
       list(endpoints.values()),
     )
 
   @staticmethod
   def from_class(cls: type, include_bases: bool = False) -> 'Service':
-    service = Service([], [])
+    service_annotation = get_annotation(cls, ServiceAnnotation)
+    service = Service(service_annotation.name if service_annotation else cls.__name__, [], [])
 
     for auth_annotation in get_annotations(cls, AuthenticationAnnotation):
       service.authentication_methods.append(auth_annotation.get())
@@ -103,15 +129,24 @@ def parse_type_hints(
       f'by the endpoint argument list: {unknown_path_params}'
     )
 
+  def _get_default(k) -> t.Any | NotSet:
+    param = endpoint.args.get(k)
+    if param and param.default is not NotSet.Value:
+      return param.default
+    value = signature.parameters[k].default
+    if value is not inspect._empty:
+      return value
+    return NotSet.Value
+
   delayed: dict[str, t.Any] = {}
   for k, v in type_hints.items():
     if k == 'return':
       continue
     param = endpoint.args.get(k)
     if param:
-      if param.default is NotSet.Value and (sig_default := signature.parameters[k].default) is not inspect._empty:
-        param.default = sig_default
-      args[k] = Argument(param.kind, param.default, param.name, v)
+      args[k] = Argument(param.kind, _get_default(k), param.name, v)
+    elif k in endpoint.path.parameters:
+      args[k] = Argument(ParamKind.path, _get_default(k), None, v)
     else:
       delayed[k] = v
 

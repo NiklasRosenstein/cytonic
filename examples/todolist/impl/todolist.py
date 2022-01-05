@@ -15,13 +15,15 @@ _users = {
 
 _lists = {
   '0': TodoList('0', 'My todolist', datetime.datetime.now()),
+  '1': TodoList('1', 'Work stuff', datetime.datetime.now()),
 }
 
 _items = {
   '0': [
     TodoItem('Take out trash', datetime.datetime.now()),
     TodoItem('Do stuff', datetime.datetime.now()),
-  ]
+  ],
+  '1': []
 }
 
 
