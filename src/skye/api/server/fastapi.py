@@ -1,18 +1,17 @@
 
 import databind.json
 import logging
-import sys
 import textwrap
 import typing as t
-from fastapi import APIRouter
+import fastapi
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
-
-from skye.api.runtime.exceptions import ServiceException, UnauthorizedError
-from ..runtime import HandlerMixin, Service, Endpoint, AuthenticationMethod
+from nr.pylang.utils.singletons import NotSet
+from skye.api.runtime.exceptions import ServiceException
+from ..runtime import HandlerMixin, Service, Endpoint, AuthenticationMethod, ParamKind
 
 logger = logging.getLogger(__name__)
-HandlerFactory = t.Callable[[], HandlerMixin] | t.Type[HandlerMixin]
+HandlerFactory = t.Union[t.Type[HandlerMixin], t.Callable[[], HandlerMixin]]
 
 
 async def extract_authorization(
@@ -21,17 +20,19 @@ async def extract_authorization(
 ) -> t.Any | None:
   for method in authentication_methods:
     return await method.extract_credentials(request)
+  return None
 
 
-class SkyeAPIRouter(APIRouter):
+class SkyeAPIRouter(fastapi.APIRouter):
   """ Router for service implementations defined with the Skye runtime API. """
 
   def __init__(self, handler_factory: HandlerFactory, service_config: Service | None = None, **kwargs: t.Any) -> None:
     super().__init__(**kwargs)
-    self._handler_factory = handler_factory
-    self._service_config = handler_factory.service_config if isinstance(handler_factory, type) else service_config
-    if self._service_config is None:
+    service_config = handler_factory.service_config if isinstance(handler_factory, type) else service_config
+    if service_config is None:
       raise RuntimeError('missing service_config when factory function is provided')
+    self._handler_factory = handler_factory
+    self._service_config = service_config
     self._init_router()
 
   def _serialize_value(self, value: t.Any, type_: t.Any | None) -> t.Any:
@@ -46,7 +47,7 @@ class SkyeAPIRouter(APIRouter):
 
     for endpoint in self._service_config.endpoints:
       self.add_api_route(
-        path=endpoint.path,
+        path=str(endpoint.path),
         endpoint=self._get_endpoint_handler(endpoint),
         methods=[endpoint.method],
         name=endpoint.name,
@@ -68,6 +69,7 @@ class SkyeAPIRouter(APIRouter):
           # TODO (@nrosenstein): Automatically convert to a response
           response = await getattr(handler, endpoint.name)(**kwargs)
           response = self._serialize_value(response, endpoint.return_type)
+        assert response is not None
         response = await handler.after_request(response) or response
       except ServiceException as exc:
         response = self._handle_exception(exc)
@@ -77,10 +79,10 @@ class SkyeAPIRouter(APIRouter):
 
       return response
 
+    print(endpoint.name)
     # Generate code to to tell FastAPI which parameters this endpoint accepts.
-    # TODO (@nrosenstein): support other parameter types (like query/header/cookie).
-    args = ', '.join(a.name for a in endpoint.args)
-    kwargs = ', '.join(f'{a.name}={a.name}' for a in endpoint.args)
+    args = ', '.join(a for a in endpoint.args)
+    kwargs = ', '.join(f'{a}={a}' for a in endpoint.args)
     scope = {'_dispatcher': _dispatcher}
     exec(textwrap.dedent(f'''
       from starlette.requests import Request
@@ -88,9 +90,24 @@ class SkyeAPIRouter(APIRouter):
         return await _dispatcher(request=request, {kwargs})
     '''), scope)
     _handler = scope['_handler']
-    _handler.__annotations__.update({a.name: a.type for a in endpoint.args})
+    _handler.__annotations__.update({k: a.type for k, a in endpoint.args.items()})
     if endpoint.return_type:
       _handler.__annotations__['return'] = endpoint.return_type
+
+    defaults = []
+    for arg in endpoint.args.values():
+      default = None if arg.default is NotSet.Value else arg.default
+      required = arg.default is not NotSet.Value
+      if arg.kind == ParamKind.cookie:
+        value = fastapi.Cookie(default, required=required)
+      elif arg.kind == ParamKind.query:
+        value = fastapi.Query(default, required=required)
+      elif arg.kind == ParamKind.header:
+        value = fastapi.Header(default, required=required)
+      else:
+        continue
+      defaults.append(value)
+    _handler.__defaults__ = tuple(defaults)  # type: ignore
 
     return _handler
 

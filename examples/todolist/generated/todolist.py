@@ -1,7 +1,7 @@
 
 import dataclasses
 import datetime
-from skye.api.runtime import authentication, endpoint
+from skye.api.runtime import authentication, endpoint, query
 from skye.api.runtime.exceptions import NotFoundError
 
 
@@ -30,8 +30,8 @@ class TodoItem:
 @authentication('oauth2_bearer')
 class TodoListServiceAsync:
 
-  @endpoint('GET /lists')
-  async def get_lists(self) -> list[TodoList]:
+  @endpoint('GET /lists', args=dict(reversed_=query(name='reversed')))
+  async def get_lists(self, reversed_: bool = True) -> list[TodoList]:
     raise NotImplementedError('TodolistServerAsync.get_lists()')
 
   @endpoint('GET /lists/{list_id}/items')
@@ -40,20 +40,4 @@ class TodoListServiceAsync:
 
   @endpoint('POST /lists/{list_id}/items')
   async def set_items(self, list_id: str, items: list[TodoItem]) -> None:
-    raise NotImplementedError('TodolistServerAsync.get_items()')
-
-
-@authentication('oauth2_bearer')
-class TodoListServiceBlocking:
-
-  @endpoint('GET /lists')
-  def get_lists(self) -> list[TodoList]:
-    raise NotImplementedError('TodolistServerAsync.get_lists()')
-
-  @endpoint('GET /lists/{list_id}/items')
-  def get_items(self, list_id: str) -> list[TodoItem]:
-    raise NotImplementedError('TodolistServerAsync.get_items()')
-
-  @endpoint('POST /lists/{list_id}/items')
-  def set_items(self, list_id: str, items: list[TodoItem]) -> None:
     raise NotImplementedError('TodolistServerAsync.get_items()')

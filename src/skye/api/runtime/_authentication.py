@@ -6,7 +6,7 @@ import typing as t
 
 from starlette.requests import Request
 from .exceptions import UnauthorizedError
-from ._utils import add_annotation, T
+from ._utils import add_annotation, T, Annotateable
 
 
 @dataclasses.dataclass
@@ -26,7 +26,12 @@ def authentication(authentication_method: str, **options: t.Any) -> t.Callable[[
   """
 
   def _decorator(obj: T) -> T:
-    add_annotation(obj, AuthenticationAnnotation, AuthenticationAnnotation(authentication_method, options), front=True)
+    add_annotation(
+      t.cast(Annotateable, obj),
+      AuthenticationAnnotation,
+      AuthenticationAnnotation(authentication_method, options),
+      front=True
+    )
     return obj
 
   return _decorator

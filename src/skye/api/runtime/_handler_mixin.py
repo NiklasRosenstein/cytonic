@@ -22,7 +22,3 @@ class HandlerMixin:
 
   async def after_request(self, response: Response) -> Response | None:
     pass
-
-  @property
-  def context(self) -> Request:
-    return self._context
