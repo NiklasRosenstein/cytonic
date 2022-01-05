@@ -96,13 +96,18 @@ class EndpointAnnotation:
   """ Holds the endpoint details added with the #endpoint() decorator. """
   method: str
   path: Path
-  args: dict[str, Param]
 
   def __pretty__(self) -> str:
     return f'@endpoint("{self.method} {self.path}")'
 
 
-def endpoint(http: str, args: dict[str, Param] | None = None) -> t.Callable[[T], T]:
+@dataclasses.dataclass
+class ArgsAnnotation:
+  """ Holds additional argument details. """
+  args: dict[str, Param]
+
+
+def endpoint(http: str) -> t.Callable[[T], T]:
   """
   Decorator for methods on a service class to mark them as endpoints to be served/accessible via the specified
   HTTP method and parametrized path.
@@ -114,7 +119,22 @@ def endpoint(http: str, args: dict[str, Param] | None = None) -> t.Callable[[T],
     add_annotation(
       t.cast(Annotateable, obj),
       EndpointAnnotation,
-      EndpointAnnotation(method, Path(path), args or {}),
+      EndpointAnnotation(method, Path(path)),
+      front=True
+    )
+    return obj
+
+  return _decorator
+
+
+def args(**args: dict[str, Param]) -> t.Callable[[T], T]:
+  """ Decorator for endpoint methods to attach additional #Param information to an endpoint argument. """
+
+  def _decorator(obj: T) -> T:
+    add_annotation(
+      t.cast(Annotateable, obj),
+      ArgsAnnotation,
+      ArgsAnnotation(args),
       front=True
     )
     return obj

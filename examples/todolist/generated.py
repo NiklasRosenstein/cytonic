@@ -2,7 +2,7 @@
 import dataclasses
 import datetime
 
-from skye.api.runtime import authentication, endpoint, query, service, Credentials
+from skye.api.runtime import authentication, endpoint, args, query, service, Credentials
 from skye.api.runtime.exceptions import NotFoundError
 
 
@@ -32,7 +32,8 @@ class TodoItem:
 @authentication('oauth2_bearer')
 class TodoListServiceAsync:
 
-  @endpoint('GET /lists', args=dict(reversed_=query(name='reversed')))
+  @endpoint('GET /lists')
+  @args(reversed_=query(name='reversed'))
   async def get_lists(self, auth: Credentials, reversed_: bool) -> list[TodoList]:
     raise NotImplementedError('TodolistServerAsync.get_lists()')
 

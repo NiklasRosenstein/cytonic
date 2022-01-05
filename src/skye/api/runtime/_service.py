@@ -7,7 +7,7 @@ import typing as t
 from nr.pylang.utils.singletons import NotSet
 
 from ._authentication import AuthenticationAnnotation, AuthenticationMethod, Credentials
-from ._endpoint import EndpointAnnotation, Param, ParamKind, Path
+from ._endpoint import ArgsAnnotation, EndpointAnnotation, Param, ParamKind, Path
 from ._utils import Annotateable, add_annotation, get_annotation, get_annotations
 
 T = t.TypeVar('T')
@@ -87,8 +87,13 @@ class Service:
     for key in dir(cls):
       value = getattr(cls, key)
       if isinstance(value, types.FunctionType) and (endpoint := get_annotation(value, EndpointAnnotation)):
-        endpoint_name = f'{cls.__name__}.{key}'
-        args, return_type = parse_type_hints(t.get_type_hints(value), inspect.signature(value), endpoint, endpoint_name)
+        args, return_type = parse_type_hints(
+          type_hints=t.get_type_hints(value),
+          signature=inspect.signature(value),
+          endpoint=endpoint,
+          args_annotation=get_annotation(value, ArgsAnnotation) or ArgsAnnotation({}),
+          endpoint_name=f'{cls.__name__}.{key}'
+        )
         authentication_methods = [ann.get() for ann in get_annotations(value, AuthenticationAnnotation)]
         if authentication_methods and 'auth' not in args:
           raise ValueError(f'missing "auth" parameter in endpoint {endpoint.__pretty__()}')
@@ -112,13 +117,14 @@ def parse_type_hints(
   type_hints: dict[str, t.Any],
   signature: inspect.Signature,
   endpoint: EndpointAnnotation,
+  args_annotation: ArgsAnnotation,
   endpoint_name: str,
 ) -> tuple[dict[str, Argument], t.Any]:
   """ Parses evaluated type hints to a list of arguments and the return type. """
 
   args = {}
 
-  unknown_args = endpoint.args.keys() - type_hints.keys()
+  unknown_args = args_annotation.args.keys() - type_hints.keys()
   if unknown_args:
     raise ValueError(
       f'some args in {endpoint.__pretty__()} annotation for {endpoint_name!r} are not accepted by '
@@ -133,7 +139,7 @@ def parse_type_hints(
     )
 
   def _get_default(k) -> t.Any | NotSet:
-    param = endpoint.args.get(k)
+    param = args_annotation.args.get(k)
     if param and param.default is not NotSet.Value:
       return param.default
     value = signature.parameters[k].default
@@ -145,7 +151,7 @@ def parse_type_hints(
   for k, v in type_hints.items():
     if k == 'return':
       continue
-    param = endpoint.args.get(k)
+    param = args_annotation.args.get(k)
     if param:
       args[k] = Argument(param.kind, _get_default(k), param.name, v)
     elif k in endpoint.path.parameters:
@@ -175,5 +181,4 @@ def parse_type_hints(
   if return_ is type(None):
     return_ = None
 
-  print(args)
   return args, return_
