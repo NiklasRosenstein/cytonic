@@ -6,9 +6,10 @@ import typing as t
 import databind.json
 import fastapi
 from nr.pylang.utils.singletons import NotSet
-from skye.api.runtime.exceptions import ServiceException
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+
+from skye.api.runtime.exceptions import ServiceException
 
 from ..runtime import AuthenticationMethod, Endpoint, HandlerMixin, ParamKind, Service
 

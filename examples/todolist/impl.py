@@ -1,10 +1,11 @@
 
 import datetime
 
-from skye.api.runtime import Authorization, BearerToken, HandlerMixin
-from skye.api.runtime.exceptions import UnauthorizedError
 from starlette.requests import Request
 from starlette.responses import Response
+
+from skye.api.runtime import Authorization, BearerToken, HandlerMixin
+from skye.api.runtime.exceptions import UnauthorizedError
 
 from .generated import TodoItem, TodoList, TodoListNotFoundError, TodoListServiceAsync
 
