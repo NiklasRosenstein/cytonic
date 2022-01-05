@@ -7,7 +7,7 @@ Define APIs and generated Pythonic client/server code.
 APIs are defined as YAML files:
 
 ```yml
-name: todolist
+name: TodoList
 description: A simple todo list API.
 authentication: oauth2_bearer
 endpoints:
@@ -15,24 +15,30 @@ endpoints:
     http: GET /lists
     return: list[TodoList]
   get_items:
-    http: GET /lists/{list_name}/items
+    http: GET /lists/{list_id}/items
     args:
-      list_name: string
+      list_id: string
     return: list[TodoItem]
   set_items:
-    http: POST /lists/{list_name}/items
+    http: POST /lists/{list_id}/items
     args:
-      list_name: string
+      list_id: string
       request: list[TodoItem]
 types:
   TodoList:
     fields:
+      id: string
       name: string
       created_at: datetime
   TodoItem:
     fields:
       text: string
       created_at: datetime
+errors:
+  TodoListNotFound:
+    base: NOT_FOUND
+    args:
+
 ```
 
 And can be used to generated Python code:
@@ -42,60 +48,4 @@ And can be used to generated Python code:
     Generated todolist/src/todolist/generated/todolist_service.py
     Generated todolist/src/todolist/generated/todolist_types.py
 
-Producing code that like this:
-
-```py
-# todolist_service.py
-from skye.api.runtime import authentication, endpoint
-from todolist.generated.todolist_types import TodoList, TodoItem
-
-
-@authentication('oauth2_bearer')
-class TodolistServiceAsync:
-
-  @endpoint('GET /lists')
-  async def get_list(self) -> list[TodoList]:
-    raise NotImplementedError('TodolistServerAsync.get_list()')
-
-  @endpoint('GET /lists/{list_name}/items')
-  async def get_items(self, list_name: str) -> list[TodoItem]:
-    raise NotImplementedError('TodolistServerAsync.get_items()')
-
-  @endpoint('POST /lists/{list_name}/items')
-  async def set_items(self, list_name: str, items: list[TodoItem]) -> None:
-    raise NotImplementedError('TodolistServerAsync.get_items()')
-
-
-@authentication('oauth2_bearer')
-class TodolistServiceBlocking:
-
-  @endpoint('GET /lists')
-  def get_list(self) -> list[TodoList]:
-    raise NotImplementedError('TodolistServerAsync.get_list()')
-
-  @endpoint('GET /lists/{list_name}/items')
-  def get_items(self, list_name: str) -> list[TodoItem]:
-    raise NotImplementedError('TodolistServerAsync.get_items()')
-
-  @endpoint('POST /lists/{list_name}/items')
-  def set_items(self, list_name: str, items: list[TodoItem]) -> None:
-    raise NotImplementedError('TodolistServerAsync.get_items()')
-```
-
-```py
-# todolist_types.py
-import dataclasses
-import datetime
-
-
-@dataclasses.dataclass
-class TodoList:
-  name: str
-  created_at: datetime.datetime
-
-
-@dataclasses.dataclass
-class TodoItem:
-  text: str
-  created_at: datetime.datetime
-```
+Producing code that like this: (see [examples/todolist/generated/todolist.py](examples/todolist/generated/todolist.py))

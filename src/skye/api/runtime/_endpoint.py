@@ -2,7 +2,7 @@
 import dataclasses
 import typing as t
 
-from ._utils import add_annotation, T_Annotateable
+from ._utils import add_annotation, T
 
 
 @dataclasses.dataclass
@@ -12,7 +12,7 @@ class EndpointAnnotation:
   path: str
 
 
-def endpoint(http: str) -> t.Callable[[T_Annotateable], T_Annotateable]:
+def endpoint(http: str) -> t.Callable[[T], T]:
   """
   Decorator for methods on a service class to mark them as endpoints to be served/accessible via the specified
   HTTP method and parametrized path.
@@ -20,7 +20,7 @@ def endpoint(http: str) -> t.Callable[[T_Annotateable], T_Annotateable]:
 
   method, path = http.split(maxsplit=2)
 
-  def _decorator(obj: T_Annotateable) -> T_Annotateable:
+  def _decorator(obj: T) -> T:
     add_annotation(obj, EndpointAnnotation, EndpointAnnotation(method, path), front=True)
     return obj
 

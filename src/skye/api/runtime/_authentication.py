@@ -5,8 +5,8 @@ import dataclasses
 import typing as t
 
 from starlette.requests import Request
-from ._exceptions import UnauthorizedError
-from ._utils import add_annotation, T_Annotateable
+from .exceptions import UnauthorizedError
+from ._utils import add_annotation, T
 
 
 @dataclasses.dataclass
@@ -19,13 +19,13 @@ class AuthenticationAnnotation:
     return authorization_methods[self.authentication_method](**self.options)
 
 
-def authentication(authentication_method: str, **options: t.Any) -> t.Callable[[T_Annotateable], T_Annotateable]:
+def authentication(authentication_method: str, **options: t.Any) -> t.Callable[[T], T]:
   """
   Decorator for classes that describe an API service to specify one or more types of authentication usable with all
   of the endpoints. Multiple authentication methods can be specified per service or endpoint.
   """
 
-  def _decorator(obj: T_Annotateable) -> T_Annotateable:
+  def _decorator(obj: T) -> T:
     add_annotation(obj, AuthenticationAnnotation, AuthenticationAnnotation(authentication_method, options), front=True)
     return obj
 
@@ -70,7 +70,7 @@ class OAuth2BearerAuthenticationMethod(AuthenticationMethod):
     header_value: str | None = request.headers.get(self.header_name)
     if not header_value:
       raise UnauthorizedError('missing Authorization header')
-    scheme, header_value = header_value.split(maxsplit=2)
+    scheme, header_value, *_ = header_value.split(maxsplit=2) + ['']
     if scheme.lower() != 'bearer':
       raise UnauthorizedError('bad Authorization scheme')
     return BearerToken(header_value)
@@ -86,7 +86,7 @@ class BasicAuthenticationMethod(AuthenticationMethod):
     header_value: str | None = request.headers.get("Authorization")
     if not header_value:
       raise UnauthorizedError('missing Authorization header')
-    scheme, header_value = header_value.split(maxsplit=2)
+    scheme, header_value, *_ = header_value.split(maxsplit=2) + ['']
     if scheme.lower() != 'basic':
       raise UnauthorizedError('bad Authorization scheme')
     try:
