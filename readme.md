@@ -38,7 +38,7 @@ errors:
   TodoListNotFound:
     base: NOT_FOUND
     args:
-
+      list_id: string
 ```
 
 And can be used to generated Python code:
