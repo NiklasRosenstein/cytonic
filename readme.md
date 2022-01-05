@@ -1,4 +1,4 @@
-# appfire-api-spec
+# skye-api
 
 Define APIs and generated Pythonic client/server code.
 
@@ -37,7 +37,7 @@ types:
 
 And can be used to generated Python code:
 
-    $ python -m appfire.api.spec todolist-api/src/*.yml --prefix todolist/src --package todolist.generated
+    $ python -m skye.api todolist-api/src/*.yml --prefix todolist/src --package todolist.generated
     Generated todolist/src/todolist/generated/__init__.py
     Generated todolist/src/todolist/generated/todolist_service.py
     Generated todolist/src/todolist/generated/todolist_types.py
@@ -46,7 +46,7 @@ Producing code that like this:
 
 ```py
 # todolist_service.py
-from appfire.api.spec.runtime import authentication, endpoint
+from skye.api.runtime import authentication, endpoint
 from todolist.generated.todolist_types import TodoList, TodoItem
 
 

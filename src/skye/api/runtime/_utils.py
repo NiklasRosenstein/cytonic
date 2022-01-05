@@ -2,7 +2,7 @@
 import types
 import typing as t
 
-_ANNOTATION_MEMBER_NAME = '__appfire_runtime_annotations__'
+_ANNOTATION_MEMBER_NAME = '__skye_api_runtime_annotations__'
 
 T = t.TypeVar('T')
 Annotateable = types.FunctionType | type
