@@ -9,12 +9,11 @@ from nr.pylang.utils.singletons import NotSet
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from skye.api.runtime.exceptions import ServiceException
-
-from ..runtime import AuthenticationMethod, Endpoint, HandlerMixin, ParamKind, Service
+from ..runtime import AuthenticationMethod, Endpoint, ParamKind, Service, Credentials
+from ..runtime.exceptions import ServiceException
 
 logger = logging.getLogger(__name__)
-HandlerFactory = t.Union[t.Type[HandlerMixin], t.Callable[[], HandlerMixin]]
+HandlerFactory = t.Union[t.Type, t.Callable[[], t.Any]]
 
 # TODO (@nrosenstein): If FastAPI request parameter validation fails, it returns some JSON that indicates
 #   the error details. We should try to catch this error payload and wrap it into a ServiceException to
@@ -35,7 +34,7 @@ class SkyeAPIRouter(fastapi.APIRouter):
 
   def __init__(self, handler_factory: HandlerFactory, service_config: Service | None = None, **kwargs: t.Any) -> None:
     super().__init__(**kwargs)
-    service_config = handler_factory.service_config if isinstance(handler_factory, type) else service_config
+    service_config = Service.from_class(handler_factory, True) if isinstance(handler_factory, type) else service_config
     if service_config is None:
       raise RuntimeError('missing service_config when factory function is provided')
     self._handler_factory = handler_factory
@@ -68,16 +67,10 @@ class SkyeAPIRouter(fastapi.APIRouter):
     authorization_methods = self._service_config.authentication_methods + endpoint.authentication_methods
 
     async def _dispatcher(request: Request, **kwargs):
-      authorization = await extract_authorization(authorization_methods, request)
       handler = self._handler_factory()
       try:
-        response = await handler.before_request(request, authorization)
-        if response is None:
-          # TODO (@nrosenstein): Automatically convert to a response
-          response = await getattr(handler, endpoint.name)(**kwargs)
-          response = self._serialize_value(response, endpoint.return_type)
-        assert response is not None
-        response = await handler.after_request(response) or response
+        response = await getattr(handler, endpoint.name)(**kwargs)
+        response = self._serialize_value(response, endpoint.return_type)
       except ServiceException as exc:
         response = self._handle_exception(exc)
       except:
@@ -86,10 +79,14 @@ class SkyeAPIRouter(fastapi.APIRouter):
 
       return response
 
+    async def _get_credentials(request: Request) -> Credentials:
+      return await extract_authorization(authorization_methods, request)
+
     # Generate code to to tell FastAPI which parameters this endpoint accepts.
     args = ', '.join(a for a in endpoint.args)
     kwargs = ', '.join(f'{a}={a}' for a in endpoint.args)
     scope = {'_dispatcher': _dispatcher}
+
     exec(textwrap.dedent(f'''
       from starlette.requests import Request
       async def _handler(request: Request, {args}):
@@ -109,6 +106,8 @@ class SkyeAPIRouter(fastapi.APIRouter):
         value = fastapi.Query(default, alias=arg.name)
       elif arg.kind == ParamKind.header:
         value = fastapi.Header(default, alias=arg.name)
+      elif arg.kind == ParamKind.auth:
+        value = fastapi.Depends(_get_credentials)
       else:
         continue
       defaults.append(value)

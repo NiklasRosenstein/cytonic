@@ -51,7 +51,7 @@ class UnauthorizedError(ServiceException):
   ERROR_CODE = 'UNAUTHORIZED'
   ERROR_NAME = 'Default:Unauthorized'
 
-  def __init__(self, message: str, **parameters) -> None:
+  def __init__(self, message: str | None = None, **parameters) -> None:
     super().__init__(message=Safe(message), **parameters)
 
 
@@ -59,7 +59,7 @@ class NotFoundError(ServiceException):
   ERROR_CODE = 'NOT_FOUND'
   ERROR_NAME = 'Default:NotFound'
 
-  def __init__(self, message: str, **parameters) -> None:
+  def __init__(self, message: str | None = None, **parameters) -> None:
     super().__init__(message=Safe(message), **parameters)
 
 
@@ -67,5 +67,5 @@ class ConflictError(ServiceException):
   ERROR_CODE = 'CONFLICT'
   ERROR_NAME = 'Default:Conflict'
 
-  def __init__(self, message: str, **parameters) -> None:
+  def __init__(self, message: str | None = None, **parameters) -> None:
     super().__init__(message=Safe(message), **parameters)

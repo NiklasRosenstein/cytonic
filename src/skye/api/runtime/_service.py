@@ -6,7 +6,7 @@ import typing as t
 
 from nr.pylang.utils.singletons import NotSet
 
-from ._authentication import AuthenticationAnnotation, AuthenticationMethod
+from ._authentication import AuthenticationAnnotation, AuthenticationMethod, Credentials
 from ._endpoint import EndpointAnnotation, Param, ParamKind, Path
 from ._utils import Annotateable, add_annotation, get_annotation, get_annotations
 
@@ -86,16 +86,19 @@ class Service:
 
     for key in dir(cls):
       value = getattr(cls, key)
-      if isinstance(value, types.FunctionType) and (annotation := get_annotation(value, EndpointAnnotation)):
+      if isinstance(value, types.FunctionType) and (endpoint := get_annotation(value, EndpointAnnotation)):
         endpoint_name = f'{cls.__name__}.{key}'
-        args, return_type = parse_type_hints(t.get_type_hints(value), inspect.signature(value), annotation, endpoint_name)
+        args, return_type = parse_type_hints(t.get_type_hints(value), inspect.signature(value), endpoint, endpoint_name)
+        authentication_methods = [ann.get() for ann in get_annotations(value, AuthenticationAnnotation)]
+        if authentication_methods and 'auth' not in args:
+          raise ValueError(f'missing "auth" parameter in endpoint {endpoint.__pretty__()}')
         service.endpoints.append(Endpoint(
           name=key,
-          method=annotation.method,
-          path=annotation.path,
+          method=endpoint.method,
+          path=endpoint.path,
           args=args,
           return_type=return_type,
-          authentication_methods=[ann.get() for ann in get_annotations(value, AuthenticationAnnotation)],
+          authentication_methods=authentication_methods,
         ))
 
     if include_bases:
@@ -156,7 +159,9 @@ def parse_type_hints(
 
   # Now automatically assign parameter kinds for the ones that are not explicitly defined.
   for k, v in delayed.items():
-    if not body_args:
+    if v == Credentials:
+      kind = ParamKind.auth
+    elif not body_args:
       kind = ParamKind.body
       body_args.add(k)
     else:
@@ -170,4 +175,5 @@ def parse_type_hints(
   if return_ is type(None):
     return_ = None
 
+  print(args)
   return args, return_

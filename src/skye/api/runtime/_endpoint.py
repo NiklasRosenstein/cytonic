@@ -58,6 +58,7 @@ class Path:
 
 
 class ParamKind(enum.Enum):
+  auth = 'auth'
   body = 'body'
   cookie = 'cookie'
   header = 'header'

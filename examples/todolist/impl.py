@@ -1,10 +1,7 @@
 
 import datetime
 
-from starlette.requests import Request
-from starlette.responses import Response
-
-from skye.api.runtime import Authorization, BearerToken, HandlerMixin
+from skye.api.runtime import Credentials, BearerToken
 from skye.api.runtime.exceptions import UnauthorizedError
 
 from .generated import TodoItem, TodoList, TodoListNotFoundError, TodoListServiceAsync
@@ -27,28 +24,29 @@ _items = {
 }
 
 
-class TodoListServiceAsyncImpl(TodoListServiceAsync, HandlerMixin):
+class TodoListServiceAsyncImpl(TodoListServiceAsync):
 
-  async def before_request(self, request: Request, authorization: Authorization | None) -> Response | None:
-    assert authorization
-    token = authorization.cast(BearerToken)
+  def validate_user(self, auth: Credentials) -> str:
+    token = auth.cast(BearerToken)
     if token.value not in _users:
-      raise UnauthorizedError()
-    self.user = _users[token.value]
-    return None
+      raise UnauthorizedError('invalid token')
+    return _users[token.value]
 
-  async def get_lists(self, reversed_: bool) -> list[TodoList]:
+  async def get_lists(self, auth: Credentials, reversed_: bool) -> list[TodoList]:
+    self.validate_user(auth)
     result = list(_lists.values())
     if reversed_:
       result.reverse()
     return result
 
-  async def get_items(self, list_id: str) -> list[TodoItem]:
+  async def get_items(self, auth: Credentials, list_id: str) -> list[TodoItem]:
+    self.validate_user(auth)
     if list_id in _lists:
       return _items[list_id] + [TodoItem(self.user, datetime.datetime.now())]
     raise TodoListNotFoundError(list_id)
 
-  async def set_items(self, list_id: str, items: list[TodoItem]) -> None:
+  async def set_items(self, auth: Credentials, list_id: str, items: list[TodoItem]) -> None:
+    self.validate_user(auth)
     if list_id in _lists:
       _items[list_id] = items
       return
