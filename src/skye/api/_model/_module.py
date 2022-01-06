@@ -1,6 +1,10 @@
 
 import dataclasses
+import typing as t
+from pathlib import Path
 
+import databind.json
+import yaml
 from ._auth import AuthenticationConfig
 from ._endpoint import EndpointConfig
 from ._error import ErrorConfig
@@ -8,7 +12,7 @@ from ._type import TypeConfig
 
 
 @dataclasses.dataclass
-class ServiceConfig:
+class ModuleConfig:
 
   #: The name of the service; this is used in several places in the generated code.
   name: str
@@ -27,3 +31,14 @@ class ServiceConfig:
 
   #: Authentication configuration.
   auth: AuthenticationConfig | None = None
+
+
+def load_module(config: dict[str, t.Any] | str | Path, filename: str | None = None) -> ModuleConfig:
+  """ Loads a module configuration from a nested structure, YAML string or YAML file. """
+
+  if isinstance(config, Path):
+    return load_module(config.read_text(), filename=str(config))
+  elif isinstance(config, str):
+    return load_module(yaml.safe_load(config), filename=filename)
+
+  return databind.json.load(config, ModuleConfig, filename=filename)
