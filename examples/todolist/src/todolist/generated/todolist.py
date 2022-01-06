@@ -2,7 +2,9 @@
 import dataclasses
 import datetime
 
-from skye.api.runtime import authentication, endpoint, args, query, service, Credentials
+from skye.api.runtime.service import service
+from skye.api.runtime.endpoint import endpoint, args, query
+from skye.api.runtime.auth import authentication, Credentials, OAuth2Bearer
 from skye.api.runtime.exceptions import NotFoundError
 
 
@@ -29,7 +31,7 @@ class TodoItem:
 
 
 @service('TodoList')
-@authentication('oauth2_bearer')
+@authentication(OAuth2Bearer())
 class TodoListServiceAsync:
 
   @endpoint('GET /lists')

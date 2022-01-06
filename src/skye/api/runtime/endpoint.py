@@ -127,7 +127,7 @@ def endpoint(http: str) -> t.Callable[[T], T]:
   return _decorator
 
 
-def args(**args: dict[str, Param]) -> t.Callable[[T], T]:
+def args(**args: Param) -> t.Callable[[T], T]:
   """ Decorator for endpoint methods to attach additional #Param information to an endpoint argument. """
 
   def _decorator(obj: T) -> T:

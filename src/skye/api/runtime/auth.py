@@ -13,18 +13,18 @@ from .exceptions import UnauthorizedError
 @dataclasses.dataclass
 class AuthenticationAnnotation:
   """ Holds the authentication mode details added to a class or function with the #authentication() decorator. """
-  authentication_method: str
+  authentication_method: 'AuthenticationMethod'
   options: dict[str, t.Any]
 
-  def get(self) -> 'AuthenticationMethod':
-    return authorization_methods[self.authentication_method](**self.options)
 
-
-def authentication(authentication_method: str, **options: t.Any) -> t.Callable[[T], T]:
+def authentication(authentication_method: 'AuthenticationMethod | None', **options: t.Any) -> t.Callable[[T], T]:
   """
   Decorator for classes that describe an API service to specify one or more types of authentication usable with all
   of the endpoints. Multiple authentication methods can be specified per service or endpoint.
   """
+
+  if authentication_method is None:
+    authentication_method = NoAuthenticationMethod()
 
   def _decorator(obj: T) -> T:
     add_annotation(
@@ -127,8 +127,5 @@ class NoAuthenticationMethod(AuthenticationMethod):
     return None
 
 
-authorization_methods = {
-  'oauth2_bearer': OAuth2BearerAuthenticationMethod,
-  'basic': BasicAuthenticationMethod,
-  'none': NoAuthenticationMethod,
-}
+OAuth2Bearer = OAuth2BearerAuthenticationMethod
+Basic = BasicAuthenticationMethod

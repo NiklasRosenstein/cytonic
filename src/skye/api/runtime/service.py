@@ -6,8 +6,8 @@ import typing as t
 
 from nr.pylang.utils.singletons import NotSet
 
-from ._authentication import AuthenticationAnnotation, AuthenticationMethod, Credentials
-from ._endpoint import ArgsAnnotation, EndpointAnnotation, Param, ParamKind, Path
+from .auth import AuthenticationAnnotation, AuthenticationMethod, Credentials
+from .endpoint import ArgsAnnotation, EndpointAnnotation, Param, ParamKind, Path
 from ._utils import Annotateable, add_annotation, get_annotation, get_annotations
 
 T = t.TypeVar('T')
@@ -82,7 +82,7 @@ class Service:
     service = Service(service_annotation.name if service_annotation else cls.__name__, [], [])
 
     for auth_annotation in get_annotations(cls, AuthenticationAnnotation):
-      service.authentication_methods.append(auth_annotation.get())
+      service.authentication_methods.append(auth_annotation.authentication_method)
 
     for key in dir(cls):
       value = getattr(cls, key)

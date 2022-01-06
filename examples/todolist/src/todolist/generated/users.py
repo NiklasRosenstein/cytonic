@@ -1,8 +1,9 @@
 
 import dataclasses
-import datetime
 
-from skye.api.runtime import authentication, endpoint, args, query, service, Credentials
+from skye.api.runtime.service import service
+from skye.api.runtime.endpoint import endpoint
+from skye.api.runtime.auth import authentication, Credentials, OAuth2BearerAuthenticationMethod
 from skye.api.runtime.exceptions import NotFoundError
 
 
@@ -22,7 +23,7 @@ class User:
 
 
 @service('Users')
-@authentication('oauth2_bearer')
+@authentication(OAuth2BearerAuthenticationMethod())
 class UsersServiceAsync:
 
   @endpoint('GET /users/me')

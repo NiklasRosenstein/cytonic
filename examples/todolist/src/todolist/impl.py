@@ -1,7 +1,7 @@
 
 import datetime
 
-from skye.api.runtime import Credentials, BearerToken
+from skye.api.runtime.auth import Credentials, BearerToken
 from skye.api.runtime.exceptions import UnauthorizedError
 
 from .generated import TodoItem, TodoList, TodoListNotFoundError, TodoListServiceAsync, UserNotFound, User, UsersServiceAsync
@@ -17,7 +17,7 @@ _lists = {
   '1': TodoList('1', 'Work stuff', datetime.datetime.now()),
 }
 
-_items = {
+_items: dict[str, list[TodoItem]] = {
   '0': [
     TodoItem('Take out trash', datetime.datetime.now()),
     TodoItem('Do stuff', datetime.datetime.now()),
@@ -41,7 +41,7 @@ class TodoListServiceAsyncImpl(TodoListServiceAsync):
   async def get_items(self, auth: Credentials, list_id: str) -> list[TodoItem]:
     await self._users.me(auth)
     if list_id in _lists:
-      return _items[list_id] + [TodoItem(self.user, datetime.datetime.now())]
+      return _items[list_id]
     raise TodoListNotFoundError(list_id)
 
   async def set_items(self, auth: Credentials, list_id: str, items: list[TodoItem]) -> None:

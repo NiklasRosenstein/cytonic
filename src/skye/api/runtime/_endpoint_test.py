@@ -1,5 +1,5 @@
 
-from ._endpoint import Path
+from .endpoint import Path
 
 
 def test_parse_path():
