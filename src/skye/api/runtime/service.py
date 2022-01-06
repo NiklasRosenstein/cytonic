@@ -94,7 +94,7 @@ class Service:
           args_annotation=get_annotation(value, ArgsAnnotation) or ArgsAnnotation({}),
           endpoint_name=f'{cls.__name__}.{key}'
         )
-        authentication_methods = [ann.get() for ann in get_annotations(value, AuthenticationAnnotation)]
+        authentication_methods = [ann.authentication_method for ann in get_annotations(value, AuthenticationAnnotation)]
         if authentication_methods and 'auth' not in args:
           raise ValueError(f'missing "auth" parameter in endpoint {endpoint.__pretty__()}')
         service.endpoints.append(Endpoint(

@@ -3,7 +3,9 @@ import abc
 import base64
 import dataclasses
 import typing as t
+import collections.abc as tc
 
+from beartype import beartype
 from starlette.requests import Request
 
 from ._utils import Annotateable, T, add_annotation
@@ -17,7 +19,8 @@ class AuthenticationAnnotation:
   options: dict[str, t.Any]
 
 
-def authentication(authentication_method: 'AuthenticationMethod | None', **options: t.Any) -> t.Callable[[T], T]:
+@beartype
+def authentication(authentication_method: t.Optional['AuthenticationMethod'], **options: t.Any) -> tc.Callable[[T], T]:
   """
   Decorator for classes that describe an API service to specify one or more types of authentication usable with all
   of the endpoints. Multiple authentication methods can be specified per service or endpoint.

@@ -3,7 +3,7 @@ import dataclasses
 
 from nr.pylang.utils.singletons import NotSet
 
-from .auth import authentication
+from .auth import Credentials, authentication, Basic, OAuth2Bearer, NoAuthenticationMethod
 from .endpoint import ParamKind, Path, endpoint
 from .service import Argument, Service
 
@@ -21,39 +21,42 @@ class UserAttrs:
   age: int
 
 
-@authentication('oauth2_bearer')
+@authentication(OAuth2Bearer())
 class ATestService:
 
-  @authentication('basic')
-  @authentication('none')
+  @authentication(Basic())
+  @authentication(None)
   @endpoint('GET /users/{id}')
-  def get_user(self, id: str) -> User:
+  def get_user(self, auth: Credentials, id: str) -> User:
     ...
 
   @endpoint('POST /users/{id}')
-  def update_user(self, id: str, attrs: UserAttrs) -> None:
+  def update_user(self, auth: Credentials, id: str, attrs: UserAttrs) -> None:
     ...
 
 
 def test_a_test_service():
   service = Service.from_class(ATestService)
-  from .auth import BasicAuthenticationMethod, NoAuthenticationMethod, OAuth2BearerAuthenticationMethod
-  from ._service import Endpoint
-  assert service.authentication_methods == [OAuth2BearerAuthenticationMethod()]
+  from .service import Endpoint
+  assert service.authentication_methods == [OAuth2Bearer()]
   assert service.endpoints == [
     Endpoint(
       name='get_user',
       method='GET',
       path=Path('/users/{id}'),
-      args={'id': Argument(ParamKind.path, NotSet.Value, None, str)},
+      args={
+        'auth': Argument(ParamKind.auth, NotSet.Value, None, Credentials),
+        'id': Argument(ParamKind.path, NotSet.Value, None, str),
+      },
       return_type=User,
-      authentication_methods=[BasicAuthenticationMethod(), NoAuthenticationMethod()],
+      authentication_methods=[Basic(), NoAuthenticationMethod()],
     ),
     Endpoint(
       name='update_user',
       method='POST',
       path=Path('/users/{id}'),
       args={
+        'auth': Argument(ParamKind.auth, NotSet.Value, None, Credentials),
         'id': Argument(ParamKind.path, NotSet.Value, None, str),
         'attrs': Argument(ParamKind.body, NotSet.Value, None, UserAttrs),
       },
