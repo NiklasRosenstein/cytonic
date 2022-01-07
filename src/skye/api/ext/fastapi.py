@@ -30,7 +30,7 @@ async def extract_authorization(
   return Credentials(None, None)
 
 
-class SkyeAPIRouter(fastapi.APIRouter):
+class SkyeAPIServiceRouter(fastapi.APIRouter):
   """ Router for service implementations defined with the Skye runtime API. """
 
   def __init__(self, handler: t.Any, service_config: Service | None = None, **kwargs: t.Any) -> None:
@@ -90,7 +90,7 @@ class SkyeAPIRouter(fastapi.APIRouter):
 
     exec(textwrap.dedent(f'''
       from starlette.requests import Request
-      async def _handler(request: Request, {args}):
+      async def _handler(request: Request, *, {args}):
         return await _dispatcher(request=request, {kwargs})
     '''), scope)
     _handler = scope['_handler']
@@ -98,8 +98,8 @@ class SkyeAPIRouter(fastapi.APIRouter):
     if endpoint.return_type:
       _handler.__annotations__['return'] = endpoint.return_type
 
-    defaults = []
-    for arg in endpoint.args.values():
+    defaults = {}
+    for arg_name, arg in endpoint.args.items():
       default = ... if arg.default is NotSet.Value else arg.default
       if arg.kind == ParamKind.cookie:
         value = fastapi.Cookie(default, alias=arg.name)
@@ -111,8 +111,8 @@ class SkyeAPIRouter(fastapi.APIRouter):
         value = fastapi.Depends(_get_credentials)
       else:
         continue
-      defaults.append(value)
-    _handler.__defaults__ = tuple(defaults)  # type: ignore
+      defaults[arg_name] = value
+    _handler.__kwdefaults__ = defaults  # type: ignore
 
     return _handler
 
