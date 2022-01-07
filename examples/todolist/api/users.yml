@@ -1,13 +1,13 @@
 name: Users
 docs: User management service.
 endpoints:
-  get_user:
-    http: GET /users/{id}
-    args:
-      id: {type: string}
-    return: User
   me:
     http: GET /users/me
+    return: User
+  get_user:
+    http: GET /users/id/{user_id}
+    args:
+      user_id: {type: string}
     return: User
 auth:
   type: oauth2_bearer

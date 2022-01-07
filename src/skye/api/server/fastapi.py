@@ -9,8 +9,10 @@ from nr.pylang.utils.singletons import NotSet
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from ..runtime import AuthenticationMethod, Endpoint, ParamKind, Service, Credentials
+from ..runtime.auth import AuthenticationMethod, Credentials
+from ..runtime.endpoint import ParamKind
 from ..runtime.exceptions import ServiceException
+from ..runtime.service import Endpoint, Service
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +24,10 @@ logger = logging.getLogger(__name__)
 async def extract_authorization(
   authentication_methods: t.Iterable[AuthenticationMethod],
   request: Request,
-) -> t.Any | None:
+) -> Credentials:
   for method in authentication_methods:
     return await method.extract_credentials(request)
-  return None
+  return Credentials(None, None)
 
 
 class SkyeAPIRouter(fastapi.APIRouter):

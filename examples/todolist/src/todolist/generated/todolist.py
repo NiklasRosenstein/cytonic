@@ -1,19 +1,22 @@
+# -*- coding: utf-8 -*-
 
 import dataclasses
 import datetime
 
-from skye.api.runtime.service import service
-from skye.api.runtime.endpoint import endpoint, args, query
-from skye.api.runtime.auth import authentication, Credentials, OAuth2Bearer
+from skye.api.runtime.auth import Credentials
+from skye.api.runtime.auth import OAuth2Bearer
+from skye.api.runtime.auth import authentication
+from skye.api.runtime.endpoint import endpoint
 from skye.api.runtime.exceptions import NotFoundError
+from skye.api.runtime.service import service
+from todolist.generated.users import User
 
 
 @dataclasses.dataclass
 class TodoListNotFoundError(NotFoundError):
-  ERROR_NAME = 'TodoList:TodoListNotFound'
   list_id: str
 
-  def __post_init__(self) -> None:
+  def __post_init__(self):
     super().__init__()
 
 
@@ -21,6 +24,7 @@ class TodoListNotFoundError(NotFoundError):
 class TodoList:
   id: str
   name: str
+  owner: User
   created_at: datetime.datetime
 
 
@@ -33,16 +37,16 @@ class TodoItem:
 @service('TodoList')
 @authentication(OAuth2Bearer())
 class TodoListServiceAsync:
+  " A simple todo list API. "
 
   @endpoint('GET /lists')
-  @args(reversed_=query(name='reversed'))
-  async def get_lists(self, auth: Credentials, reversed_: bool) -> list[TodoList]:
-    raise NotImplementedError('TodolistServerAsync.get_lists()')
+  async def get_lists(self, auth: Credentials) -> list[TodoList]:
+    pass
 
   @endpoint('GET /lists/{list_id}/items')
   async def get_items(self, auth: Credentials, list_id: str) -> list[TodoItem]:
-    raise NotImplementedError('TodolistServerAsync.get_items()')
+    pass
 
   @endpoint('POST /lists/{list_id}/items')
   async def set_items(self, auth: Credentials, list_id: str, items: list[TodoItem]) -> None:
-    raise NotImplementedError('TodolistServerAsync.get_items()')
+    pass

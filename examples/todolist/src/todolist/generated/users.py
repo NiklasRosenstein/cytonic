@@ -1,18 +1,20 @@
+# -*- coding: utf-8 -*-
 
 import dataclasses
 
-from skye.api.runtime.service import service
+from skye.api.runtime.auth import Credentials
+from skye.api.runtime.auth import OAuth2Bearer
+from skye.api.runtime.auth import authentication
 from skye.api.runtime.endpoint import endpoint
-from skye.api.runtime.auth import authentication, Credentials, OAuth2BearerAuthenticationMethod
 from skye.api.runtime.exceptions import NotFoundError
+from skye.api.runtime.service import service
 
 
 @dataclasses.dataclass
-class UserNotFound(NotFoundError):
-  ERROR_NAME = 'Users:UserNotFound'
+class UserNotFoundError(NotFoundError):
   user_id: str
 
-  def __post_init__(self) -> None:
+  def __post_init__(self):
     super().__init__()
 
 
@@ -23,13 +25,14 @@ class User:
 
 
 @service('Users')
-@authentication(OAuth2BearerAuthenticationMethod())
+@authentication(OAuth2Bearer())
 class UsersServiceAsync:
+  " User management service. "
 
   @endpoint('GET /users/me')
   async def me(self, auth: Credentials) -> User:
-    raise NotImplementedError('UserServiceAsync.me()')
+    pass
 
-  @endpoint('GET /users/id/{id_}')
-  async def get_user(self, auth: Credentials, id_: str) -> User:
-    raise NotImplementedError('UserServiceAsync.get_user()')
+  @endpoint('GET /users/id/{user_id}')
+  async def get_user(self, auth: Credentials, user_id: str) -> User:
+    pass

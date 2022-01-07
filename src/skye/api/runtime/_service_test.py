@@ -3,7 +3,7 @@ import dataclasses
 
 from nr.pylang.utils.singletons import NotSet
 
-from .auth import Credentials, authentication, Basic, OAuth2Bearer, NoAuthenticationMethod
+from .auth import Basic, Credentials, NoAuthenticationMethod, OAuth2Bearer, authentication
 from .endpoint import ParamKind, Path, endpoint
 from .service import Argument, Service
 

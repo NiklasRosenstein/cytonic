@@ -1,9 +1,9 @@
 
 import abc
 import base64
+import collections.abc as tc
 import dataclasses
 import typing as t
-import collections.abc as tc
 
 from beartype import beartype
 from starlette.requests import Request
@@ -30,6 +30,7 @@ def authentication(authentication_method: t.Optional['AuthenticationMethod'], **
     authentication_method = NoAuthenticationMethod()
 
   def _decorator(obj: T) -> T:
+    assert authentication_method is not None
     add_annotation(
       t.cast(Annotateable, obj),
       AuthenticationAnnotation,
@@ -56,6 +57,7 @@ class BasicAuth:
 class Credentials:
   """ Container for authentication credentials. """
 
+  method: 'AuthenticationMethod' | None
   value: t.Any | None
 
   def __bool__(self) -> bool:
@@ -73,7 +75,7 @@ class AuthenticationMethod(abc.ABC):
   """
 
   @abc.abstractmethod
-  async def extract_credentials(self, request: Request) -> Credentials | None:
+  async def extract_credentials(self, request: Request) -> Credentials:
     """
     Extract the credentials from the request. Raise an #UnauthorizedError if no credentials are provided.
     It is not the responsibility of this method to ensure the validity of the provided credentials, only
@@ -90,14 +92,14 @@ class OAuth2BearerAuthenticationMethod(AuthenticationMethod):
   def __init__(self, header_name: str = 'Authorization') -> None:
     self.header_name = header_name
 
-  async def extract_credentials(self, request: Request) -> Credentials | None:
+  async def extract_credentials(self, request: Request) -> Credentials:
     header_value: str | None = request.headers.get(self.header_name)
     if not header_value:
       raise UnauthorizedError('missing Authorization header')
     scheme, header_value, *_ = header_value.split(maxsplit=2) + ['']
     if scheme.lower() != 'bearer':
       raise UnauthorizedError('bad Authorization scheme')
-    return Credentials(BearerToken(header_value))
+    return Credentials(self, BearerToken(header_value))
 
 
 @dataclasses.dataclass
@@ -106,7 +108,7 @@ class BasicAuthenticationMethod(AuthenticationMethod):
   Extracts HTTP Basic authentication credentials from the request.
   """
 
-  async def extract_credentials(self, request: Request) -> Credentials | None:
+  async def extract_credentials(self, request: Request) -> Credentials:
     header_value: str | None = request.headers.get("Authorization")
     if not header_value:
       raise UnauthorizedError('missing Authorization header')
@@ -120,14 +122,14 @@ class BasicAuthenticationMethod(AuthenticationMethod):
     except (ValueError, UnicodeDecodeError):
       raise UnauthorizedError('bad Authorization header value')
     username, password = decoded.split(':')
-    return Credentials(BasicAuth(username, password))
+    return Credentials(self, BasicAuth(username, password))
 
 
 @dataclasses.dataclass
 class NoAuthenticationMethod(AuthenticationMethod):
 
-  async def extract_credentials(self, request: Request) -> Credentials | None:
-    return None
+  async def extract_credentials(self, request: Request) -> Credentials:
+    return Credentials(self, None)
 
 
 OAuth2Bearer = OAuth2BearerAuthenticationMethod

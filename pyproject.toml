@@ -26,6 +26,7 @@ dev = [
   "pytest ~=6.2.5",
   "mypy ~=0.930",
   "uvicorn ~=0.16.0",
+  "types-pyyaml",
 ]
 
 [project.urls]

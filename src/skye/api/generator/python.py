@@ -1,12 +1,14 @@
 
 import abc
 import argparse
+import builtins
 import dataclasses
+import re
 import textwrap
 import typing as t
 from pathlib import Path
 
-from ..model import Project, AuthenticationConfig, EndpointConfig, ErrorConfig, ModuleConfig, TypeConfig
+from ..model import AuthenticationConfig, EndpointConfig, ErrorConfig, ModuleConfig, Project, TypeConfig
 
 
 def _format_docstrings(level: int, indent: str, docs: str, width: int = 119) -> str:
@@ -40,16 +42,17 @@ class _PythonModule(_Rendererable):
     _DocstringBlock(self.docs).render(level, indent, fp)
     if self.module_imports:
       fp.write('\n')
-      for name in self.module_imports:
+      for name in sorted(self.module_imports):
         fp.write(f'import {name}\n')
     if self.member_imports:
       fp.write('\n')
-      for name in self.member_imports:
+      for name in sorted(self.member_imports):
         assert '.' in name, repr(name)
         from_, part = name.rpartition('.')[::2]
         fp.write(f'from {from_} import {part}\n')
     if self.members:
       for member in self.members:
+        fp.write('\n')
         fp.write('\n')
         member.render(level, indent, fp)
 
@@ -148,21 +151,40 @@ class PythonGenerator:
   prefix: Path | str
   modules: dict[str, list[ModuleConfig]] = dataclasses.field(default_factory=dict)
 
-  def write(self, dry: bool = False, stdout: bool = False, indent: str = '  ') -> None:
+  BUILTIN_TYPES = {
+    'string': 'str',
+    'integer': 'int',
+    'float': 'float',
+    'double': 'float',
+    'boolean': 'bool',
+    'datetime': 'datetime.datetime',
+    'decimal': 'decimal.Decimal',
+  }
+
+  PARAMETRIZED_TYPES = {
+    'list': 'list[?]',
+    'set': 'set[?]',
+    'map': 'dict[?, ?]',
+    'optional': '? | None',
+  }
+
+  BUILTIN_NAMES = dir(builtins) + ['request', 'auth']
+
+  def write(self, stdout: bool = False, indent: str = '  ') -> None:
     """ Writes the contents of one or more modules into a Python module with the specified name. """
 
     import sys
     for name, value in self.modules.items():
       filename = Path(self.prefix) / (name.replace('.', '/') + '.py')
+      self._current = name  # TODO (@nrosenstein): Dirty hack to check the current module in get_field_type()
       module = self._build_python_module(value)
       if stdout:
         print('#', filename)
         module.render(0, indent, sys.stdout)
       else:
         print('Write', filename)
-        if not dry:
-          with filename.open('w') as fp:
-            module.render(0, '  ', fp)
+        with filename.open('w') as fp:
+          module.render(0, '  ', fp)
 
   def _build_python_module(self, modules: list[ModuleConfig]) -> _PythonModule:
     python_module = _PythonModule(coding='utf-8')
@@ -176,26 +198,26 @@ class PythonGenerator:
         self.add_type(type_name, type_, python_module)
 
       python_module.members.append(_PythonClass(
-        name=f'{module.name.capitalize()}ServiceAsync',
+        name=f'{module.name}ServiceAsync',
         docs=module.docs,
         decorators=[f'@service({module.name!r})'] + self.get_auth_decorators(module.auth, python_module),
-        members=[self.get_endpoint_definition(k, e, python_module) for k, e in module.endpoints.items()]
+        members=[self.get_endpoint_definition(k, e, module.auth, python_module) for k, e in module.endpoints.items()]
       ))
 
     return python_module
 
-  def _make_python_class(self, name: str, config: ErrorConfig | TypeConfig, module: _PythonModule) -> _PythonClassField:
+  def _make_python_class(self, name: str, config: ErrorConfig | TypeConfig, module: _PythonModule) -> _PythonClass:
     return _PythonClass(
       name=name,
       docs=config.docs,
       decorators=['@dataclasses.dataclass'],
       fields=[
         _PythonClassField(k, self.get_field_type(f.type, module), None, f.docs) for k, f in config.fields.items()
-      ]
+      ] if config.fields else []
     )
 
   def add_error_type(self, name: str, error: ErrorConfig, module: _PythonModule) -> None:
-    class_ = self._make_python_class(name, error, module)
+    class_ = self._make_python_class(name + 'Error', error, module)
     class_.members.append(_PythonFunction('__post_init__', ['self'], body=['super().__init__()']))
     class_.bases.append(self.get_error_base_type(error.error_code, module))
     module.members.append(class_)
@@ -217,30 +239,37 @@ class PythonGenerator:
       raise ValueError(f'unknown error_code: {error_code}')
 
   def get_field_type(self, type_: str, module: _PythonModule) -> str:
-    if type_ == 'string':
-      return 'str'
-    elif type_ == 'integer':
-      return 'int'
-    elif type_ == 'double':
-      return 'float'
-    elif type_ == 'decimal':
-      module.module_imports.add('decimal')
-      return 'decmial.Decimal'
-    elif type_ == 'datetime':
-      module.module_imports.add('datetime')
-      return 'datetime.datetime'
-    else:
-      for module_name, modules in self.modules.items():
-        for module_cfg in modules:
-          if type_ in module_cfg.types:
+    match = re.match(r'(\w+)(?:\[([^\]]+)\])?', type_)
+    if not match:
+      raise ValueError(f'what\'s dis? {type_!r}')
+    type_, parameters = match.groups()
+    if python_type := self.BUILTIN_TYPES.get(type_):
+      if parameters:
+        raise ValueError(f'type {type_} cannot be parametrized')
+      if '.'in python_type:
+        module.module_imports.add(python_type.rpartition('.')[0])
+      return python_type
+    if python_type := self.PARAMETRIZED_TYPES.get(type_):
+      split_parameters = [x.strip() for x in parameters.split(',')]
+      num_params = python_type.count('?')
+      if len(split_parameters) != num_params:
+        raise ValueError(f'type {type_} requires {num_params} parameters, got {len(split_parameters)}')
+      split_parameters = [self.get_field_type(x, module) for x in split_parameters]
+      return python_type.replace('?', '{}').format(*split_parameters)
+    # Try to resolve the type in the available modules.
+    for module_name, modules in self.modules.items():
+      for module_cfg in modules:
+        if type_ in module_cfg.types:
+          if self._current != module_name:
             module.member_imports.add(module_name + '.' + type_)
-            return type_
-      raise ValueError(f'unknown type: {type_}')
+          return type_
+    raise ValueError(f'unknown type: {type_}')
 
-  def get_auth_decorators(self, auth: AuthenticationConfig, module: _PythonModule) -> None:
-    from ..model._auth import OAuth2BearerAuthenticationConfig, BasicAuthenticationConfig
+  def get_auth_decorators(self, auth: AuthenticationConfig | None, module: _PythonModule) -> list[str]:
+    from ..model._auth import BasicAuthenticationConfig, OAuth2BearerAuthenticationConfig
+    if auth is None:
+      return []
     module.member_imports.add('skye.api.runtime.auth.authentication')
-    module.member_imports.add('skye.api.runtime.auth.Credentials')
     if isinstance(auth, OAuth2BearerAuthenticationConfig):
       module.member_imports.add('skye.api.runtime.auth.OAuth2Bearer')
       if auth.header_name:
@@ -254,13 +283,26 @@ class PythonGenerator:
       raise ValueError(f'unexpected auth type: {type(auth).__name__}')
     return [f'@authentication({method})']
 
-  def get_endpoint_definition(self, name: str, endpoint: EndpointConfig, module: _PythonModule) -> None:
+  def get_endpoint_definition(self, name: str, endpoint: EndpointConfig, auth: AuthenticationConfig | None, module: _PythonModule) -> _PythonFunction:
     module.member_imports.add('skye.api.runtime.endpoint.endpoint')
     decorators = [f'@endpoint({endpoint.http!r})']
+    args = ['self'] + [f'{k}: {self.get_field_type(a.type, module)}' for k, a in (endpoint.args or {}).items()]
+    if auth:
+      module.member_imports.add('skye.api.runtime.auth.Credentials')
+      args.insert(1, 'auth: Credentials')
+
+    # NOTE (@nrosenstein): For now we just trigger an error if an argument name that collides with a Python
+    #   builtin is used, but in a future version we should rename the in-Python code function argument name
+    #   (e.g. by suffixing it with an underscore) and specify the alias in the HTTP context via the Skye
+    #   @args() decorator.
+    for arg_name in (endpoint.args or {}):
+      if arg_name in self.BUILTIN_NAMES:
+        raise ValueError(f'argument name {arg_name!r} on endpoint {name!r} collides with built-in')
+
     return _PythonFunction(
       name=name,
-      args=['self'] + [f'{k}: {self.get_field_type(a.type, module)}' for k, a in (endpoint.args or {}).items()],
-      return_type=self.get_field_type(endpoint.return_, module) if endpoint.return_ else None,
+      args=args,
+      return_type=self.get_field_type(endpoint.return_, module) if endpoint.return_ else 'None',
       docs=endpoint.docs,
       decorators=decorators,
       body=['pass'],
@@ -281,6 +323,11 @@ def get_argument_parser() -> argparse.ArgumentParser:
     metavar='PATH',
     help='Generate files starting from the specified directory (defaults to cwd).',
     required=True,
+  )
+  parser.add_argument(
+    '--stdout',
+    action='store_true',
+    help='Print the generated code to stdout instead.'
   )
   parser.add_argument(
     '--async',
@@ -308,6 +355,7 @@ def get_argument_parser() -> argparse.ArgumentParser:
 def main():
   parser = get_argument_parser()
   args = parser.parse_args()
+
   if args.module and args.package:
     parser.error('--module and --package cannot be mixed')
   if not args.module and not args.package:
@@ -322,9 +370,9 @@ def main():
   if args.module:
     generator.modules = {args.module: list(project.items.values())}
   else:
-    generator.modules = {k: [m] for k, m in project.modules.items()}
+    generator.modules = {args.package + '.' + k: [m] for k, m in project.modules.items()}
 
-  generator.write(dry=True, stdout=True)
+  generator.write(stdout=args.stdout)
 
 
 if __name__ == '__main__':

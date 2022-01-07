@@ -5,6 +5,7 @@ from pathlib import Path
 
 import databind.json
 import yaml
+
 from ._auth import AuthenticationConfig
 from ._endpoint import EndpointConfig
 from ._error import ErrorConfig

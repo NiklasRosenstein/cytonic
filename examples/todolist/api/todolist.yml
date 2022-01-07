@@ -13,7 +13,7 @@ endpoints:
     http: POST /lists/{list_id}/items
     args:
       list_id: {type: string}
-      request: {type: 'list[TodoItem]'}
+      items: {type: 'list[TodoItem]'}
 auth:
   type: oauth2_bearer
 types:

@@ -4,7 +4,7 @@ import datetime
 from skye.api.runtime.auth import Credentials, BearerToken
 from skye.api.runtime.exceptions import UnauthorizedError
 
-from .generated import TodoItem, TodoList, TodoListNotFoundError, TodoListServiceAsync, UserNotFound, User, UsersServiceAsync
+from .generated import TodoItem, TodoList, TodoListNotFoundError, TodoListServiceAsync, UserNotFoundError, User, UsersServiceAsync
 
 _users = {
   'eY123.123': User('0', 'john.wick@example.org'),
@@ -13,8 +13,8 @@ _users = {
 _users_by_id = {u.id: u for u in _users.values()}
 
 _lists = {
-  '0': TodoList('0', 'My todolist', datetime.datetime.now()),
-  '1': TodoList('1', 'Work stuff', datetime.datetime.now()),
+  '0': TodoList('0', 'My todolist', _users_by_id['0'], datetime.datetime.now()),
+  '1': TodoList('1', 'Work stuff', _users_by_id['0'], datetime.datetime.now()),
 }
 
 _items: dict[str, list[TodoItem]] = {
@@ -31,12 +31,9 @@ class TodoListServiceAsyncImpl(TodoListServiceAsync):
   def __init__(self, users: UsersServiceAsync) -> None:
     self._users = users
 
-  async def get_lists(self, auth: Credentials, reversed_: bool) -> list[TodoList]:
+  async def get_lists(self, auth: Credentials) -> list[TodoList]:
     await self._users.me(auth)
-    result = list(_lists.values())
-    if reversed_:
-      result.reverse()
-    return result
+    return list(_lists.values())
 
   async def get_items(self, auth: Credentials, list_id: str) -> list[TodoItem]:
     await self._users.me(auth)
@@ -54,11 +51,11 @@ class TodoListServiceAsyncImpl(TodoListServiceAsync):
 
 class UsersServiceAsyncImpl(UsersServiceAsync):
 
-  async def get_user(self, auth: Credentials, id_: str) -> User:
+  async def get_user(self, auth: Credentials, user_id: str) -> User:
     self.me(auth)
-    if id_ not in _users_by_id:
-      raise UserNotFound(id_)
-    return _users_by_id[id_]
+    if user_id not in _users_by_id:
+      raise UserNotFoundError(user_id)
+    return _users_by_id[user_id]
 
   async def me(self, auth: Credentials) -> User:
     token = auth.cast(BearerToken)

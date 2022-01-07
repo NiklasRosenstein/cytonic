@@ -6,9 +6,9 @@ import typing as t
 
 from nr.pylang.utils.singletons import NotSet
 
+from ._utils import Annotateable, add_annotation, get_annotation, get_annotations
 from .auth import AuthenticationAnnotation, AuthenticationMethod, Credentials
 from .endpoint import ArgsAnnotation, EndpointAnnotation, Param, ParamKind, Path
-from ._utils import Annotateable, add_annotation, get_annotation, get_annotations
 
 T = t.TypeVar('T')
 
