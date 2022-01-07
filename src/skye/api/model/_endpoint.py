@@ -5,6 +5,7 @@ import typing as t
 from databind.core.annotations import alias
 
 from ..runtime.endpoint import ParamKind
+from ._auth import AuthenticationConfig
 
 
 @dataclasses.dataclass
@@ -18,6 +19,9 @@ class EndpointConfig:
 
   #: Parametrized HTTP method and path string for the endpoint/
   http: str
+
+  #: Override the authentication method for this endpoint.
+  auth: AuthenticationConfig | None = None
 
   #: Arguments for the endpoint.
   args: dict[str, ArgumentConfig] | None = None
