@@ -160,8 +160,10 @@ class _FileWriter:
       print('#', filename)
       yield sys.stdout
     else:
+      filename = Path(filename)
+      filename.parent.mkdir(parents=True, exist_ok=True)
       print('Write', filename)
-      with Path(filename).open('w') as fp:
+      with filename.open('w') as fp:
         yield fp
 
 
@@ -252,6 +254,11 @@ class CodeGenerator:
       for value in type_.values:
         class_.fields.append(_PythonClassField(value.name, None, 'enum.auto()', value.docs))
       pass
+    if type_.extends:
+      # TODO (@nrosenstein): Ensure that the type being extended is available in the curernt module.
+      class_.bases = [self.get_field_type(type_.extends, module)]
+    if type_.union:
+      raise NotImplementedError('TypeConfig.union is not currently implemented')
     self._current_types_already_rendered.add(name)
     module.members.append(class_)
 
@@ -381,6 +388,7 @@ class ProjectGenerator:
   package: str | None = None
   version: str | None = None
   description: str | None = None
+  dist_name: str | None = None
 
   def write(self, stdout: bool = False) -> None:
     assert self.package or self.module
@@ -404,7 +412,7 @@ class ProjectGenerator:
         'build-backend = "flit_core.buildapi"',
         '',
         '[project]',
-        f'name = {self.module or self.package!r}',
+        f'name = {self.dist_name or self.module or self.package!r}',
         f'version = {self.version!r}',
         'authors = []',
         f'description = {self.description!r}',
@@ -413,6 +421,13 @@ class ProjectGenerator:
         ']',
         '',
       ]))
+      if self.dist_name:
+        fp.write('\n'.join([
+          '',
+          '[tool.flit.module]',
+          f'name = {self.module or self.package!r}',
+          '',
+        ]))
 
 
 def get_argument_parser() -> argparse.ArgumentParser:
@@ -434,6 +449,11 @@ def get_argument_parser() -> argparse.ArgumentParser:
     metavar='PATH',
     help='Generate a fully installable Pyhon project at the specified location. Cannot be mixed with --prefix',
     type=Path,
+  )
+  parser.add_argument(
+    '--dist-name',
+    metavar='NAME',
+    help='The distribution name (only with --installable).',
   )
   parser.add_argument(
     '--version',
@@ -509,7 +529,7 @@ def main():
   codegen.write(stdout=args.stdout)
 
   if args.installable:
-    projectgen = ProjectGenerator(args.installable, codegen, args.module, args.package, args.version, args.description)
+    projectgen = ProjectGenerator(args.installable, codegen, args.module, args.package, args.version, args.description, args.dist_name)
     projectgen.write(args.stdout)
 
 
