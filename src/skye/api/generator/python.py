@@ -170,6 +170,7 @@ class CodeGenerator:
   """ A class to render Python code from a Skye-API definition. """
 
   prefix: Path | str
+  package: str | None = None
   modules: dict[str, list[ModuleConfig]] = dataclasses.field(default_factory=dict)
 
   BUILTIN_TYPES = {
@@ -207,6 +208,11 @@ class CodeGenerator:
       module = self._build_python_module(module)
       with writer.open(Path(self.prefix) / (name.replace('.', '/') + '.py')) as fp:
         module.render(0, indent, fp)
+
+    if self.package:
+      with writer.open(self.prefix / self.package.replace('.', '/') / '__init__.py') as fp:
+        for module_name in self.modules:
+          fp.write(f'from {module_name} import *\n')
 
   def _build_python_module(self, modules: list[ModuleConfig]) -> _PythonModule:
     python_module = _PythonModule(coding='utf-8')
@@ -395,11 +401,6 @@ class ProjectGenerator:
 
     writer = _FileWriter(stdout)
 
-    if self.package:
-      with writer.open(self.prefix / 'src' / self.package.replace('.', '/') / '__init__.py') as fp:
-        for module_name in self.codegen.modules:
-          fp.write(f'from {module_name} import *\n')
-
     if not self.version:
       self.version = '0.0.0'
     if not self.description:
@@ -521,7 +522,7 @@ def main():
   if args.installable:
     args.prefix = args.installable / 'src'
 
-  codegen = CodeGenerator(args.prefix)
+  codegen = CodeGenerator(args.prefix, args.package)
   if args.module:
     codegen.modules = {args.module: list(project.items.values())}
   else:

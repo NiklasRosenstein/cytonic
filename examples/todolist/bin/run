@@ -1,0 +1,3 @@
+#!/bin/bash
+
+PYTHONPATH=src uvicorn todolist.app:app

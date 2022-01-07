@@ -2,6 +2,7 @@
 # Do not edit; this file was automatically generated with skye-api-python.
 
 
+import abc
 import dataclasses
 
 from skye.api.runtime.auth import Credentials
@@ -16,7 +17,6 @@ from skye.api.runtime.service import service
 class UserNotFoundError(NotFoundError):
   user_id: str
 
-
   def __post_init__(self):
     super().__init__()
 
@@ -29,13 +29,15 @@ class User:
 
 @service('Users')
 @authentication(OAuth2Bearer())
-class UsersServiceAsync:
+class UsersServiceAsync(abc.ABC):
   " User management service. "
 
   @endpoint('GET /users/me')
+  @abc.abstractmethod
   async def me(self, auth: Credentials) -> User:
     pass
 
   @endpoint('GET /users/id/{user_id}')
+  @abc.abstractmethod
   async def get_user(self, auth: Credentials, user_id: str) -> User:
     pass
