@@ -41,6 +41,9 @@ class _PythonModule(_Rendererable):
       fp.write(f'# -*- coding: {self.coding} -*-\n')
     fp.write('# Do not edit; this file was automatically generated with skye-api-python.\n\n')
     _DocstringBlock(self.docs).render(level, indent, fp)
+
+    # TODO (@nrosenstein): Collapse imports from the same modules.
+
     if self.module_imports:
       fp.write('\n')
       for name in sorted(self.module_imports):
