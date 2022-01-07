@@ -10,7 +10,7 @@ from ..runtime.endpoint import ParamKind
 @dataclasses.dataclass
 class ArgumentConfig:
   type: str
-  kind: ParamKind
+  kind: ParamKind | None = None
 
 
 @dataclasses.dataclass

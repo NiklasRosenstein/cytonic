@@ -1,8 +1,10 @@
 name: Users
-description: User management service.
+docs: User management service.
 endpoints:
   get_user:
     http: GET /users/{id}
+    args:
+      id: {type: string}
     return: User
   me:
     http: GET /users/me
@@ -12,10 +14,10 @@ auth:
 types:
   User:
     fields:
-      id: string
-      email: string
+      id: {type: string}
+      email: {type: string}
 errors:
   UserNotFound:
     error_code: NOT_FOUND
     fields:
-      user_id: string
+      user_id: {type: string}

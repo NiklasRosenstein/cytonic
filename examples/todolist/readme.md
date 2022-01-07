@@ -5,7 +5,7 @@ A simple todo list API example using `skye-api`.
 To regenerate the API code form the YAML definition, run
 
     $ cd examples/todolist
-    $ python -m skye.api api/*.yml --prefix todolist/src --package todolist.generated
+    $ skye-api-python api/*.yml --prefix todolist/src --package todolist.generated
     Generated src/todolist/generated/__init__.py
     Generated src/todolist/generated/todolist.py
     Generated src/todolist/generated/users.py

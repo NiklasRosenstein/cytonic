@@ -1,5 +1,5 @@
 name: TodoList
-description: A simple todo list API.
+docs: A simple todo list API.
 endpoints:
   get_lists:
     http: GET /lists
@@ -7,30 +7,28 @@ endpoints:
   get_items:
     http: GET /lists/{list_id}/items
     args:
-      list_id: string
+      list_id: {type: string}
     return: list[TodoItem]
   set_items:
     http: POST /lists/{list_id}/items
     args:
-      list_id: string
-      request: list[TodoItem]
+      list_id: {type: string}
+      request: {type: 'list[TodoItem]'}
 auth:
   type: oauth2_bearer
 types:
-  User:
-    ref: .users
   TodoList:
     fields:
-      id: string
-      name: string
-      owner: User
-      created_at: datetime
+      id: {type: string}
+      name: {type: string}
+      owner: {type: User}
+      created_at: {type: datetime}
   TodoItem:
     fields:
-      text: string
-      created_at: datetime
+      text: {type: string}
+      created_at: {type: datetime}
 errors:
   TodoListNotFound:
     error_code: NOT_FOUND
     fields:
-      list_id: string
+      list_id: {type: string}

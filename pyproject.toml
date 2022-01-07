@@ -15,6 +15,9 @@ dependencies = [
   "pyyaml ~=6.0",
 ]
 
+[project.scripts]
+skye-api-python = "skye.api.generator.python:main"
+
 [project.optional-dependencies]
 fastapi = [
   "fastapi ~=0.70.1",
