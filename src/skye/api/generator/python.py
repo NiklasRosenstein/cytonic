@@ -142,8 +142,6 @@ class _PythonClass(_Rendererable):
       for field in self.fields:
         field.render(level + 1, indent, fp)
     if self.members:
-      if self.docs or self.fields:
-        fp.write('\n')
       for member in self.members:
         fp.write('\n')
         member.render(level + 1, indent, fp)
@@ -221,9 +219,11 @@ class CodeGenerator:
       for type_name, type_ in module.types.items():
         self.add_type(type_name, type_, python_module)
 
+      python_module.module_imports.add('abc')
       python_module.members.append(_PythonClass(
         name=f'{module.name}ServiceAsync',
         docs=module.docs,
+        bases=['abc.ABC'],
         decorators=[f'@service({module.name!r})'] + self.get_auth_decorators(module.auth, python_module),
         members=[self.get_endpoint_definition(k, e, module.auth, python_module) for k, e in module.endpoints.items()]
       ))
@@ -373,7 +373,7 @@ class CodeGenerator:
       args=args,
       return_type=self.get_field_type(endpoint.return_, module) if endpoint.return_ else 'None',
       docs=endpoint.docs,
-      decorators=decorators,
+      decorators=decorators + ['@abc.abstractmethod'],
       body=['pass'],
       async_=True,
     )
