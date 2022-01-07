@@ -39,6 +39,7 @@ class _PythonModule(_Rendererable):
   def render(self, level: int, indent: str, fp: t.TextIO) -> None:
     if self.coding:
       fp.write(f'# -*- coding: {self.coding} -*-\n')
+    fp.write('# Do not edit; this file was automatically generated with skye-api-python.\n\n')
     _DocstringBlock(self.docs).render(level, indent, fp)
     if self.module_imports:
       fp.write('\n')
@@ -60,14 +61,10 @@ class _PythonModule(_Rendererable):
 @dataclasses.dataclass
 class _DocstringBlock(_Rendererable):
   docs: str | None
-  blank_newline_prefix: bool = False
 
   def render(self, level: int, indent: str, fp: t.TextIO) -> None:
     if self.docs:
-      if self.blank_newline_prefix:
-        fp.write('\n')
       fp.write(_format_docstrings(level, indent, self.docs))
-      fp.write('\n')
 
 
 @dataclasses.dataclass
@@ -139,6 +136,8 @@ class _PythonClass(_Rendererable):
       for field in self.fields:
         field.render(level + 1, indent, fp)
     if self.members:
+      if self.docs or self.fields:
+        fp.write('\n')
       for member in self.members:
         fp.write('\n')
         member.render(level + 1, indent, fp)

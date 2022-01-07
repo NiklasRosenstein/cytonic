@@ -57,7 +57,7 @@ class BasicAuth:
 class Credentials:
   """ Container for authentication credentials. """
 
-  method: 'AuthenticationMethod' | None
+  method: t.Union['AuthenticationMethod', None]
   value: t.Any | None
 
   def __bool__(self) -> bool:

@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+# Do not edit; this file was automatically generated with skye-api-python.
+
 
 import dataclasses
 import datetime
@@ -15,6 +17,7 @@ from todolist.generated.users import User
 @dataclasses.dataclass
 class TodoListNotFoundError(NotFoundError):
   list_id: str
+
 
   def __post_init__(self):
     super().__init__()

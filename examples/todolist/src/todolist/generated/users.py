@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+# Do not edit; this file was automatically generated with skye-api-python.
+
 
 import dataclasses
 
@@ -13,6 +15,7 @@ from skye.api.runtime.service import service
 @dataclasses.dataclass
 class UserNotFoundError(NotFoundError):
   user_id: str
+
 
   def __post_init__(self):
     super().__init__()
