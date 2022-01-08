@@ -254,12 +254,14 @@ class CodeGenerator:
 
   def add_type(self, name: str, type_: TypeConfig, module: _PythonModule) -> None:
     type_.validate()
-    class_ = self._make_python_class(name, type_, module)
     if type_.values:
+      class_ = _PythonClass(name, type_.docs)
       module.module_imports.add('enum')
       for value in type_.values:
         class_.fields.append(_PythonClassField(value.name, None, 'enum.auto()', value.docs))
-      pass
+      class_.bases = ['enum.Enum']
+    else:
+      class_ = self._make_python_class(name, type_, module)
     if type_.extends:
       # TODO (@nrosenstein): Ensure that the type being extended is available in the curernt module.
       class_.bases = [self.get_field_type(type_.extends, module)]
