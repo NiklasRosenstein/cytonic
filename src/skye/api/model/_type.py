@@ -1,12 +1,23 @@
 
+import typing as t
 import dataclasses
 import itertools
 
+from databind.core import Context
+from databind.json.annotations import with_custom_json_converter
 
+
+@with_custom_json_converter()
 @dataclasses.dataclass
 class FieldConfig:
   type: str
   docs: str | None = None
+
+  @classmethod
+  def _convert_json(cls, ctx: 'Context') -> t.Any:
+    if ctx.direction.is_deserialize() and isinstance(ctx.value, str):
+      return cls(ctx.value, None)
+    return NotImplemented
 
 
 @dataclasses.dataclass
