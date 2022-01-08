@@ -408,6 +408,9 @@ class ProjectGenerator:
     if not self.description:
       self.description = 'Auto-generated API bindings.'
 
+    if self.package:
+      with writer.open(self.prefix / 'src' / self.package.replace('.', '/') / 'py.typed'): ...
+
     with writer.open(self.prefix / 'pyproject.toml') as fp:
       fp.write('\n'.join([
         '[build-system]',
