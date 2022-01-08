@@ -343,7 +343,7 @@ class CodeGenerator:
     raise ValueError(f'unknown type: {type_}')
 
   def get_auth_decorators(self, auth: AuthenticationConfig | None, module: _PythonModule) -> list[str]:
-    from ..model._auth import BasicAuthenticationConfig, OAuth2BearerAuthenticationConfig
+    from ..model._auth import BasicAuthenticationConfig, OAuth2BearerAuthenticationConfig, NoAuthenticationConfig
     if auth is None:
       return []
     module.member_imports.add('skye.api.runtime.auth.authentication')
@@ -356,15 +356,17 @@ class CodeGenerator:
     elif isinstance(auth, BasicAuthenticationConfig):
       module.member_imports.add('skye.api.runtime.auth.Basic')
       method = 'Basic()'
+    elif isinstance(auth, NoAuthenticationConfig):
+      method = 'None'
     else:
       raise ValueError(f'unexpected auth type: {type(auth).__name__}')
     return [f'@authentication({method})']
 
   def get_endpoint_definition(self, name: str, endpoint: EndpointConfig, auth: AuthenticationConfig | None, module: _PythonModule) -> _PythonFunction:
     module.member_imports.add('skye.api.runtime.endpoint.endpoint')
-    decorators = [f'@endpoint({endpoint.http!r})']
+    decorators = [f'@endpoint({endpoint.http!r})'] + self.get_auth_decorators(endpoint.auth, module)
     args = ['self'] + [f'{k}: {self.get_field_type(a.type, module)}' for k, a in (endpoint.args or {}).items()]
-    if auth:
+    if auth or endpoint.auth:
       module.member_imports.add('skye.api.runtime.auth.Credentials')
       args.insert(1, 'auth: Credentials')
 

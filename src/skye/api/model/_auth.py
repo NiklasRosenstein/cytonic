@@ -22,3 +22,9 @@ class OAuth2BearerAuthenticationConfig(AuthenticationConfig):
 @dataclasses.dataclass
 class BasicAuthenticationConfig(AuthenticationConfig):
   pass
+
+
+@union.subtype(AuthenticationConfig, 'none')
+@dataclasses.dataclass
+class NoAuthenticationConfig(AuthenticationConfig):
+  pass

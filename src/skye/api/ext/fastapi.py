@@ -11,7 +11,7 @@ from starlette.responses import JSONResponse, Response
 
 from ..runtime.auth import AuthenticationMethod, Credentials
 from ..runtime.endpoint import ParamKind
-from ..runtime.exceptions import ServiceException
+from ..runtime.exceptions import ServiceException, UnauthorizedError
 from ..runtime.service import Endpoint, Service
 
 logger = logging.getLogger(__name__)
@@ -25,9 +25,17 @@ async def extract_authorization(
   authentication_methods: t.Iterable[AuthenticationMethod],
   request: Request,
 ) -> Credentials:
+  if not authentication_methods:
+    return Credentials(None, None)
+  unauthorized_errors = []
   for method in authentication_methods:
-    return await method.extract_credentials(request)
-  return Credentials(None, None)
+    try:
+      return await method.extract_credentials(request)
+    except UnauthorizedError as exc:
+      unauthorized_errors.append(exc)
+  if len(unauthorized_errors) == 1:
+    raise unauthorized_errors[0]
+  raise UnauthorizedError('no valid authentication method satisfied', authentication_errors=[str(x) for x in unauthorized_errors])
 
 
 class SkyeAPIServiceRouter(fastapi.APIRouter):
