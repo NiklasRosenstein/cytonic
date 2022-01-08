@@ -167,7 +167,7 @@ def parse_type_hints(
   for k, v in delayed.items():
     if v == Credentials:
       kind = ParamKind.auth
-    elif not body_args:
+    elif not body_args and endpoint.method not in ('GET', 'HEAD', 'OPTIONS'):
       kind = ParamKind.body
       body_args.add(k)
     else:

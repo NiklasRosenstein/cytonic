@@ -1,5 +1,6 @@
 
 import dataclasses
+import typing as t
 
 from nr.pylang.utils.singletons import NotSet
 
@@ -34,6 +35,10 @@ class ATestService:
   def update_user(self, auth: Credentials, id: str, attrs: UserAttrs) -> None:
     ...
 
+  @endpoint('GET /users')
+  def get_users(self, auth: Credentials, search_text: str | None = None) -> None:
+    ...
+
 
 def test_a_test_service():
   service = Service.from_class(ATestService)
@@ -50,6 +55,17 @@ def test_a_test_service():
       },
       return_type=User,
       authentication_methods=[Basic(), NoAuthenticationMethod()],
+    ),
+    Endpoint(
+      name='get_users',
+      method='GET',
+      path=Path('/users'),
+      args={
+        'auth': Argument(ParamKind.auth, NotSet.Value, None, Credentials),
+        'search_text': Argument(ParamKind.query, None, None, t.Optional[str]),
+      },
+      return_type=None,
+      authentication_methods=[],
     ),
     Endpoint(
       name='update_user',
