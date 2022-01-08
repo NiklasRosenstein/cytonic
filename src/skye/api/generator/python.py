@@ -365,7 +365,13 @@ class CodeGenerator:
   def get_endpoint_definition(self, name: str, endpoint: EndpointConfig, auth: AuthenticationConfig | None, module: _PythonModule) -> _PythonFunction:
     module.member_imports.add('skye.api.runtime.endpoint.endpoint')
     decorators = [f'@endpoint({endpoint.http!r})'] + self.get_auth_decorators(endpoint.auth, module)
-    args = ['self'] + [f'{k}: {self.get_field_type(a.type, module)}' for k, a in (endpoint.args or {}).items()]
+    args = ['self']
+    for arg_name, arg in (endpoint.args or {}).items():
+      arg_code = f'{arg_name}: {self.get_field_type(arg.type, module)}'
+      if arg.type.startswith('optional['):
+        arg_code += ' = None'
+      args.append(arg_code)
+
     if auth or endpoint.auth:
       module.member_imports.add('skye.api.runtime.auth.Credentials')
       args.insert(1, 'auth: Credentials')
