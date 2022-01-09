@@ -109,7 +109,9 @@ class SkyeAPIServiceRouter(fastapi.APIRouter):
     defaults = {}
     for arg_name, arg in endpoint.args.items():
       default = ... if arg.default is NotSet.Value else arg.default
-      if arg.kind == ParamKind.cookie:
+      if arg.kind == ParamKind.body:
+        value = fastapi.Body(default, alias=arg.name)
+      elif arg.kind == ParamKind.cookie:
         value = fastapi.Cookie(default, alias=arg.name)
       elif arg.kind == ParamKind.query:
         value = fastapi.Query(default, alias=arg.name)
