@@ -119,6 +119,15 @@ class _PythonClassField(_Rendererable):
 
 
 @dataclasses.dataclass
+class _StaticCode(_Rendererable):
+  code: str
+
+  def render(self, level: int, indent: str, fp: t.TextIO) -> None:
+    for line in self.code.splitlines():
+      fp.write(level * indent + line + '\n')
+
+
+@dataclasses.dataclass
 class _PythonClass(_Rendererable):
   name: str
   docs: str | None = None
@@ -174,6 +183,7 @@ class CodeGenerator:
   modules: dict[str, list[ModuleConfig]] = dataclasses.field(default_factory=dict)
 
   BUILTIN_TYPES = {
+    'any': 'typing.Any',
     'string': 'str',
     'integer': 'int',
     'float': 'float',
@@ -254,6 +264,24 @@ class CodeGenerator:
 
   def add_type(self, name: str, type_: TypeConfig, module: _PythonModule) -> None:
     type_.validate()
+
+    if type_.union:
+      module.module_imports.add('typing')
+      module.module_imports.add('databind.core.annotations')
+
+      # TODO (@NiklasRosenstein): Add support for alternate union styles in TypeConfig?
+      code = '\n'.join([
+        f'{name} = typing.Annotated[',
+        '  ' + ' | '.join(v for v in type_.union.values()) + ',',
+        '  databind.core.annotations.union({',
+        *(f'    {k!r}: {v},' for k, v in type_.union.items()),
+        '  })',
+        ']',
+      ])
+
+      module.members.append(_StaticCode(code))
+      return
+
     if type_.values:
       class_ = _PythonClass(name, type_.docs)
       module.module_imports.add('enum')
@@ -262,11 +290,11 @@ class CodeGenerator:
       class_.bases = ['enum.Enum']
     else:
       class_ = self._make_python_class(name, type_, module)
+
     if type_.extends:
       # TODO (@nrosenstein): Ensure that the type being extended is available in the curernt module.
       class_.bases = [self.get_field_type(type_.extends, module)]
-    if type_.union:
-      raise NotImplementedError('TypeConfig.union is not currently implemented')
+
     self._current_types_already_rendered.add(name)
     module.members.append(class_)
 
