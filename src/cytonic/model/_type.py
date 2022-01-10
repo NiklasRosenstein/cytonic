@@ -5,6 +5,7 @@ import itertools
 
 from databind.core import Context
 from databind.json.annotations import with_custom_json_converter
+from nr.util.singleton import NotSet
 
 
 @with_custom_json_converter()
@@ -12,6 +13,7 @@ from databind.json.annotations import with_custom_json_converter
 class FieldConfig:
   type: str
   docs: str | None = None
+  default: t.Any = NotSet.Value
 
   @classmethod
   def _convert_json(cls, ctx: 'Context') -> t.Any:

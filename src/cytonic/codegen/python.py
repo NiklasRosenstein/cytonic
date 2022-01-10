@@ -20,6 +20,8 @@ import textwrap
 import typing as t
 from pathlib import Path
 
+from nr.util.singleton import NotSet
+
 from cytonic import __version__
 from cytonic.model import AuthenticationConfig, EndpointConfig, ErrorConfig, ModuleConfig, Project, TypeConfig
 
@@ -202,10 +204,10 @@ class CodeGenerator:
   }
 
   PARAMETRIZED_TYPES = {
-    'list': 'list[?]',
-    'set': 'set[?]',
-    'map': 'dict[?, ?]',
-    'optional': '? | None',
+    'list': 'typing.List[?]',
+    'set': 'typing.Set[?]',
+    'map': 'typing.Dict[?, ?]',
+    'optional': 'typing.Optional[?]',
   }
 
   PYTHON_KEYWORDS = ['from', 'import', 'as', 'with', 'for', 'in', 'while', 'try', 'except', 'finally']
@@ -254,7 +256,7 @@ class CodeGenerator:
       docs=config.docs,
       decorators=['@dataclasses.dataclass'],
       fields=[
-        _PythonClassField(k, self.get_field_type(f.type, module), None, f.docs) for k, f in config.fields.items()
+        _PythonClassField(k, self.get_field_type(f.type, module), repr(f.default) if f.default is not NotSet.Value else None, f.docs) for k, f in config.fields.items()
       ] if config.fields else []
     )
 
@@ -362,14 +364,11 @@ class CodeGenerator:
       custom_types_in_parameters: list[tuple[str, str]] = []
       split_parameters = [self.get_field_type(x, module, custom_types_in_parameters) for x in split_parameters]
 
-      # Special handling for the optional type, if we need to use a forward reference then we cannot
-      # use the | syntax but need to use the typing module.
-      if type_ == 'optional' and any(t[1] not in self._current_types_already_rendered for t in custom_types_in_parameters):
-        assert len(split_parameters) == 1
+      code = python_type.replace('?', '{}').format(*split_parameters)
+      if code.startswith('typing.'):
         module.module_imports.add('typing')
-        return f'typing.Optional[{split_parameters[0]}]'
 
-      return python_type.replace('?', '{}').format(*split_parameters)
+      return code
 
     # Try to resolve the type in the available modules.
     for module_name, modules in self.modules.items():

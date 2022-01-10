@@ -1,0 +1,5 @@
+changes:
+- type: feature
+  component: general
+  description: add `FieldConfig.default`, render generics using `typing` hints instead
+    of `PEP585` which are not well supported by pydantic when using forward references
