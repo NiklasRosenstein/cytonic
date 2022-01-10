@@ -2,3 +2,4 @@ changes:
 - type: fix
   component: general
   description: make sure that `py.typed` is packaged
+release_date: '2022-01-10'

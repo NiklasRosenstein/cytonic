@@ -31,7 +31,7 @@ extras_require['test'] = test_requirements
 
 setuptools.setup(
   name = 'cytonic',
-  version = '0.1.1',
+  version = '0.1.2',
   author = 'Niklas Rosenstein',
   author_email = 'rosensteinniklas@gmail.com',
   description = 'A Python framework to define REST APIs and automatically generate server side bindings and clients.',
