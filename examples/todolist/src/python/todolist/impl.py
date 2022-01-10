@@ -1,11 +1,10 @@
 
 import datetime
 
+from cytonic.runtime import Credentials, UnauthorizedError
 from nr.util.safearg import Safe
 
-from cytonic.runtime import Credentials, UnauthorizedError
-
-from .generated import TodoItem, TodoList, TodoListNotFoundError, TodoListServiceAsync, UserNotFoundError, User, UsersServiceAsync
+from .api import TodoItem, TodoList, TodoListNotFoundError, TodoListServiceAsync, UserNotFoundError, User, UsersServiceAsync
 
 _users = {
   'eY123.123': User('0', 'john.wick@example.org'),

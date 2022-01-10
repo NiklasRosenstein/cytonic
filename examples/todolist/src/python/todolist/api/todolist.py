@@ -9,7 +9,7 @@ import datetime
 from cytonic.description import authentication, endpoint, service
 from cytonic.model import OAuth2Bearer
 from cytonic.runtime import Credentials, NotFoundError
-from todolist.generated.users import User
+from todolist.api.users import User
 
 
 @dataclasses.dataclass

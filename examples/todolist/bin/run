@@ -1,3 +1,3 @@
 #!/bin/bash
 
-PYTHONPATH=src uvicorn todolist.app:app
+PYTHONPATH=src/python/ uvicorn todolist.app:app
