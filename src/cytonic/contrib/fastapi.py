@@ -114,15 +114,16 @@ class CytonicServiceRouter(fastapi.APIRouter):
 
     # TODO (@nrosenstein): De-serialize parameters using databind.json instead of relying on the default?
 
-    # TODO (@nrosenstein): Support non-async handlers?
-
     authentication_methods = self._service_description.authentication_methods + endpoint.authentication_methods
 
     async def _dispatcher(request: Request, **kwargs):
       try:
         if authentication_methods:
           kwargs['auth'] = await _get_credentials(authentication_methods, request)
-        response = await getattr(self._handler, endpoint.name)(**kwargs)
+        response = getattr(self._handler, endpoint.name)(**kwargs)
+        # TODO (@nrosenstein): Better support for non-async endpoints.
+        if endpoint.async_:
+          response = await response
         response = self._serialize_value(response, endpoint.return_type)
       except ServiceException as exc:
         response = self._handle_exception(exc)
