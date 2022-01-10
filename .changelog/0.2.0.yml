@@ -3,3 +3,4 @@ changes:
   component: general
   description: add `FieldConfig.default`, render generics using `typing` hints instead
     of `PEP585` which are not well supported by pydantic when using forward references
+release_date: '2022-01-10'
