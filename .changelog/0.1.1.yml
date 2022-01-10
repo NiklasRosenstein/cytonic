@@ -3,3 +3,4 @@ changes:
   component: general
   description: add workaround to support non-async endpoints in FastAPI router, but
     there is a lot of room for improvement
+release_date: '2022-01-10'
