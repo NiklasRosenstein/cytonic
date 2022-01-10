@@ -2,4 +2,4 @@
 
 dir="$(dirname $(dirname ${BASH_SOURCE[0]}))"
 rm -rf $dir/src/todolist/generated/
-skye-api-python $dir/api/*.yml --prefix $dir/src/ --package todolist.generated
+cytonic-codegen-python $dir/api/*.yml --prefix $dir/src/ --package todolist.generated

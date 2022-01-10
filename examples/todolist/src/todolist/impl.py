@@ -1,8 +1,9 @@
 
 import datetime
 
-from skye.api.runtime.auth import Credentials, BearerToken
-from skye.api.runtime.exceptions import UnauthorizedError
+from nr.util.safearg import Safe
+
+from cytonic.runtime import Credentials, UnauthorizedError
 
 from .generated import TodoItem, TodoList, TodoListNotFoundError, TodoListServiceAsync, UserNotFoundError, User, UsersServiceAsync
 
@@ -58,7 +59,7 @@ class UsersServiceAsyncImpl(UsersServiceAsync):
     return _users_by_id[user_id]
 
   async def me(self, auth: Credentials) -> User:
-    token = auth.cast(BearerToken)
-    if token.value not in _users:
-      raise UnauthorizedError('invalid token')
-    return _users[token.value]
+    token = auth.get_bearer_token()
+    if token not in _users:
+      raise UnauthorizedError(Safe('invalid token'))
+    return _users[token]

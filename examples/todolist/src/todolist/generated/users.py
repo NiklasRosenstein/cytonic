@@ -5,12 +5,9 @@
 import abc
 import dataclasses
 
-from skye.api.runtime.auth import Credentials
-from skye.api.runtime.auth import OAuth2Bearer
-from skye.api.runtime.auth import authentication
-from skye.api.runtime.endpoint import endpoint
-from skye.api.runtime.exceptions import NotFoundError
-from skye.api.runtime.service import service
+from cytonic.description import authentication, endpoint, service
+from cytonic.model import OAuth2Bearer
+from cytonic.runtime import Credentials, NotFoundError
 
 
 @dataclasses.dataclass
@@ -29,15 +26,31 @@ class User:
 
 @service('Users')
 @authentication(OAuth2Bearer())
+class UsersServiceBlocking(abc.ABC):
+  " User management service. "
+
+  @endpoint("GET /users/me")
+  @abc.abstractmethod
+  def me(self, auth: Credentials) -> User:
+    pass
+
+  @endpoint("GET /users/id/{user_id}")
+  @abc.abstractmethod
+  def get_user(self, auth: Credentials, user_id: str) -> User:
+    pass
+
+
+@service('Users')
+@authentication(OAuth2Bearer())
 class UsersServiceAsync(abc.ABC):
   " User management service. "
 
-  @endpoint('GET /users/me')
+  @endpoint("GET /users/me")
   @abc.abstractmethod
   async def me(self, auth: Credentials) -> User:
     pass
 
-  @endpoint('GET /users/id/{user_id}')
+  @endpoint("GET /users/id/{user_id}")
   @abc.abstractmethod
   async def get_user(self, auth: Credentials, user_id: str) -> User:
     pass

@@ -1,7 +1,7 @@
 
 import dataclasses
 
-from cytonic.model import AuthenticationConfig
+from cytonic.model import AuthenticationConfig, NoAuth, OAuth2Bearer, BasicAuth as _BasicAuth
 
 
 @dataclasses.dataclass
@@ -34,3 +34,15 @@ class Credentials:
     if not isinstance(self.value, BasicAuth):
       raise RuntimeError('credential contains no BasicAuth')
     return self.value
+
+  @classmethod
+  def empty(cls, config: NoAuth) -> 'Credentials':
+    return cls(config, None)
+
+  @classmethod
+  def of_bearer_token(cls, config: OAuth2Bearer, token: str) -> 'Credentials':
+    return cls(config, BearerToken(token))
+
+  @classmethod
+  def of_basic_auth(cls, config: BasicAuth, username: str, password: str) -> 'Credentials':
+    return cls(config, BasicAuth(username, password))

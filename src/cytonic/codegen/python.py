@@ -386,23 +386,11 @@ class CodeGenerator:
     raise ValueError(f'unknown type: {type_}')
 
   def get_auth_decorators(self, auth: AuthenticationConfig | None, module: _PythonModule) -> list[str]:
-    from ..model._auth import BasicAuth, Oauth2Bearer, NoAuth
     if auth is None:
       return []
     module.member_imports.add('cytonic.description.authentication')
-    if isinstance(auth, Oauth2Bearer):
-      module.member_imports.add('cytonic.description.OAuth2Bearer')
-      if auth.header_name:
-        method = f'OAuth2Bearer({auth.header_name!r})'
-      else:
-        method = 'OAuth2Bearer()'
-    elif isinstance(auth, BasicAuth):
-      module.member_imports.add('cytonic.description.Basic')
-      method = 'Basic()'
-    elif isinstance(auth, NoAuth):
-      method = 'None'
-    else:
-      raise ValueError(f'unexpected auth type: {type(auth).__name__}')
+    module.member_imports.add(f'cytonic.model.{type(auth).__name__}')
+    method = repr(auth)
     return [f'@authentication({method})']
 
   def get_endpoint_definition(self, name: str, endpoint: EndpointConfig, auth: AuthenticationConfig | None, module: _PythonModule, async_: bool) -> _PythonFunction:

@@ -7,7 +7,7 @@ from nr.util.singleton import NotSet
 from cytonic.description import (
   authentication, endpoint, service, ArgumentDescription, EndpointDescription, ServiceDescription
 )
-from cytonic.model import Oauth2Bearer, BasicAuth, NoAuth, ParamKind, HttpPath
+from cytonic.model import OAuth2Bearer, BasicAuth, NoAuth, ParamKind, HttpPath
 from cytonic.runtime import Credentials
 
 
@@ -25,7 +25,7 @@ class UserAttrs:
 
 
 @service('ATest')
-@authentication(Oauth2Bearer())
+@authentication(OAuth2Bearer())
 class ATestService:
 
   @authentication(BasicAuth())
@@ -46,7 +46,7 @@ class ATestService:
 def test_a_test_service():
   service = ServiceDescription.from_class(ATestService)
   assert service.name == 'ATest'
-  assert service.authentication_methods == [Oauth2Bearer()]
+  assert service.authentication_methods == [OAuth2Bearer()]
   assert service.endpoints == [
     EndpointDescription(
       name='get_user',

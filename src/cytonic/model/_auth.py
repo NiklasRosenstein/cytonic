@@ -6,7 +6,7 @@ from databind.core.annotations import union
 
 
 @dataclasses.dataclass
-class Oauth2Bearer:
+class OAuth2Bearer:
   header_name: str | None = None
 
   def __repr__(self) -> str:
@@ -31,9 +31,9 @@ class NoAuth:
 
 
 AuthenticationConfig = t.Annotated[
-  Oauth2Bearer | BasicAuth | NoAuth,
+  OAuth2Bearer | BasicAuth | NoAuth,
   union({
-    'oauth2_bearer': Oauth2Bearer,
+    'oauth2_bearer': OAuth2Bearer,
     'basic': BasicAuth,
     'none': NoAuth,
   }, style=union.Style.flat)
