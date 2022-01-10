@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Do not edit; this file was automatically generated with skye-api-python.
+# Do not edit; this file was automatically generated with cytonic.codegen.python.
 
 
 import abc

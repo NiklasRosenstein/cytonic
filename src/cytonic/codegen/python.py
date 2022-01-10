@@ -52,7 +52,7 @@ class _PythonModule(_Rendererable):
   def render(self, level: int, indent: str, fp: t.TextIO) -> None:
     if self.coding:
       fp.write(f'# -*- coding: {self.coding} -*-\n')
-    fp.write('# Do not edit; this file was automatically generated with skye-api-python.\n\n')
+    fp.write('# Do not edit; this file was automatically generated with cytonic.codegen.python.\n\n')
     _DocstringBlock(self.docs).render(level, indent, fp)
 
     if self.module_imports:
@@ -462,7 +462,7 @@ class ProjectGenerator:
         'authors = []',
         f'description = {self.description!r}',
         'dependencies = [',
-        f'  "skye-api ~={__version__}",',
+        f'  "cytonic ~={__version__}",',
         ']',
         '',
       ]))
