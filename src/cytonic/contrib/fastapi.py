@@ -1,18 +1,19 @@
 
+""" Mount Cytonic service implementations in a FastAPI app. """
+
 import logging
 import textwrap
 import typing as t
 
 import databind.json
 import fastapi
-from nr.pylang.utils.singletons import NotSet
+from nr.util.singleton import NotSet
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from ..runtime.auth import AuthenticationMethod, Credentials
-from ..runtime.endpoint import ParamKind
-from ..runtime.exceptions import ServiceException, UnauthorizedError
-from ..runtime.service import Endpoint, Service
+from cytonic import (
+  AuthenticationMethod, Credentials, ParamKind, ServiceException, UnauthorizedError, Endpoint, Service
+)
 
 logger = logging.getLogger(__name__)
 
@@ -110,13 +111,13 @@ class SkyeAPIServiceRouter(fastapi.APIRouter):
     for arg_name, arg in endpoint.args.items():
       default = ... if arg.default is NotSet.Value else arg.default
       if arg.kind == ParamKind.body:
-        value = fastapi.Body(default, alias=arg.name)
+        value = fastapi.Body(default, alias=arg.alias)
       elif arg.kind == ParamKind.cookie:
-        value = fastapi.Cookie(default, alias=arg.name)
+        value = fastapi.Cookie(default, alias=arg.alias)
       elif arg.kind == ParamKind.query:
-        value = fastapi.Query(default, alias=arg.name)
+        value = fastapi.Query(default, alias=arg.alias)
       elif arg.kind == ParamKind.header:
-        value = fastapi.Header(default, alias=arg.name)
+        value = fastapi.Header(default, alias=arg.alias)
       elif arg.kind == ParamKind.auth:
         value = fastapi.Depends(_get_credentials)
       else:
@@ -131,5 +132,6 @@ class SkyeAPIServiceRouter(fastapi.APIRouter):
       'UNAUTHORIZED': 403,
       'NOT_FOUND': 404,
       'CONFLICT': 409,
+      'ILLEGAL_ARGUMENT': 400,
     }
     return JSONResponse(exc.safe_dict(), status_code=status_codes.get(exc.ERROR_CODE, 500))

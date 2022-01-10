@@ -1,4 +1,14 @@
 
+"""
+A code generator for Python code from Cytonic YAML configs. This module can be called as a CLI as
+`cytonic-codegen-python` or `python -m cytonic.codegen.python`. The generator can be used to generate code
+in three different formats:
+
+* A single Python module file (using the `--module` option)
+* A Python package or subpackage (using the `--package` option)
+* A Python project with a `pyproject.toml` using Flit as a build system (using the `--installable` option)
+"""
+
 import abc
 import argparse
 import builtins
@@ -10,8 +20,8 @@ import textwrap
 import typing as t
 from pathlib import Path
 
-from .. import __version__
-from ..model import AuthenticationConfig, EndpointConfig, ErrorConfig, ModuleConfig, Project, TypeConfig
+from cytonic import __version__
+from cytonic.model import AuthenticationConfig, EndpointConfig, ErrorConfig, ModuleConfig, Project, TypeConfig
 
 
 def _format_docstrings(level: int, indent: str, docs: str, width: int = 119) -> str:
@@ -235,14 +245,8 @@ class CodeGenerator:
       for type_name, type_ in module.types.items():
         self.add_type(type_name, type_, python_module)
 
-      python_module.module_imports.add('abc')
-      python_module.members.append(_PythonClass(
-        name=f'{module.name}ServiceAsync',
-        docs=module.docs,
-        bases=['abc.ABC'],
-        decorators=[f'@service({module.name!r})'] + self.get_auth_decorators(module.auth, python_module),
-        members=[self.get_endpoint_definition(k, e, module.auth, python_module) for k, e in module.endpoints.items()]
-      ))
+      self.add_service_definition(module, python_module, async_=False)
+      self.add_service_definition(module, python_module, async_=True)
 
     return python_module
 
@@ -298,6 +302,16 @@ class CodeGenerator:
     self._current_types_already_rendered.add(name)
     module.members.append(class_)
 
+  def add_service_definition(self, module: ModuleConfig, python_module: _PythonModule, async_: bool) -> None:
+    python_module.module_imports.add('abc')
+    python_module.members.append(_PythonClass(
+      name=f'{module.name}ServiceAsync' if async_ else f'{module.name}ServiceBlocking',
+      docs=module.docs,
+      bases=['abc.ABC'],
+      decorators=[f'@service({module.name!r})'] + self.get_auth_decorators(module.auth, python_module),
+      members=[self.get_endpoint_definition(k, e, module.auth, python_module, async_) for k, e in module.endpoints.items()]
+    ))
+
   def get_error_base_type(self, error_code: str, module: _PythonModule) -> str:
     if error_code == 'NOT_FOUND':
       module.member_imports.add('skye.api.runtime.exceptions.NotFoundError')
@@ -308,6 +322,9 @@ class CodeGenerator:
     elif error_code == 'CONFLICT':
       module.member_imports.add('skye.api.runtime.exceptions.ConflictError')
       return 'ConflictError'
+    elif error_code == 'ILLEGAL_ARGUMENT':
+      module.member_imports.add('skye.api.runtime.exceptions.IllegalArgumentError')
+      return 'IllegalArgumentError'
     else:
       raise ValueError(f'unknown error_code: {error_code}')
 
@@ -371,26 +388,26 @@ class CodeGenerator:
     raise ValueError(f'unknown type: {type_}')
 
   def get_auth_decorators(self, auth: AuthenticationConfig | None, module: _PythonModule) -> list[str]:
-    from ..model._auth import BasicAuthenticationConfig, OAuth2BearerAuthenticationConfig, NoAuthenticationConfig
+    from ..model._auth import BasicAuth, Oauth2Bearer, NoAuth
     if auth is None:
       return []
     module.member_imports.add('skye.api.runtime.auth.authentication')
-    if isinstance(auth, OAuth2BearerAuthenticationConfig):
+    if isinstance(auth, Oauth2Bearer):
       module.member_imports.add('skye.api.runtime.auth.OAuth2Bearer')
       if auth.header_name:
         method = f'OAuth2Bearer({auth.header_name!r})'
       else:
         method = 'OAuth2Bearer()'
-    elif isinstance(auth, BasicAuthenticationConfig):
+    elif isinstance(auth, BasicAuth):
       module.member_imports.add('skye.api.runtime.auth.Basic')
       method = 'Basic()'
-    elif isinstance(auth, NoAuthenticationConfig):
+    elif isinstance(auth, NoAuth):
       method = 'None'
     else:
       raise ValueError(f'unexpected auth type: {type(auth).__name__}')
     return [f'@authentication({method})']
 
-  def get_endpoint_definition(self, name: str, endpoint: EndpointConfig, auth: AuthenticationConfig | None, module: _PythonModule) -> _PythonFunction:
+  def get_endpoint_definition(self, name: str, endpoint: EndpointConfig, auth: AuthenticationConfig | None, module: _PythonModule, async_: bool) -> _PythonFunction:
     module.member_imports.add('skye.api.runtime.endpoint.endpoint')
     decorators = [f'@endpoint({endpoint.http!r})'] + self.get_auth_decorators(endpoint.auth, module)
     args = ['self']
@@ -419,7 +436,7 @@ class CodeGenerator:
       docs=endpoint.docs,
       decorators=decorators + ['@abc.abstractmethod'],
       body=['pass'],
-      async_=True,
+      async_=async_,
     )
 
 

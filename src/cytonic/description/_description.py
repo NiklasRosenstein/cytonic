@@ -4,64 +4,58 @@ import inspect
 import types
 import typing as t
 
-from nr.pylang.utils.singletons import NotSet
+from nr.util.annotations import get_annotation, get_annotations
+from nr.util.singleton import NotSet
 
-from ._utils import Annotateable, add_annotation, get_annotation, get_annotations
-from .auth import AuthenticationAnnotation, AuthenticationMethod, Credentials
-from .endpoint import ArgsAnnotation, EndpointAnnotation, Param, ParamKind, Path
-
-T = t.TypeVar('T')
-
-
-@dataclasses.dataclass
-class ServiceAnnotation:
-  """ Annotation for service classes. """
-  name: str
-
-
-def service(name: str) -> t.Callable[[T], T]:
-  """ Decorator for service classes. """
-
-  def _decorator(obj: T) -> T:
-    add_annotation(
-      t.cast(Annotateable, obj),
-      ServiceAnnotation,
-      ServiceAnnotation(name),
-      front=True,
-    )
-    return obj
-
-  return _decorator
+from cytonic.model import AuthenticationConfig, HttpPath, ParamKind
+from cytonic.runtime import Credentials
+from ._decorators import AuthenticationAnnotation, EndpointAnnotation, EndpointArgsAnnotation, ServiceAnnotation
 
 
 @dataclasses.dataclass
-class Argument(Param):
-  """ Represents an endpoint argument. """
+class ArgumentDescription:
+  """ Represents additional information for a parameter. """
 
-  type: t.Any
+  #: The kind of HTTP parameter.
+  kind: ParamKind
+
+  #: The default value of the parameter. This is used if the parameter is not supplied. This is
+  #: not supported for path parameters/
+  default: t.Any | NotSet = NotSet.Value
+
+  #: The parameter alias as it will need to be specified in the HTTP request. This needs to be used
+  #: if the HTTP parameter name clashes with a Python keyword, or simply if the parameter name in code
+  #: should be different from the HTTP parameter name.
+  alias: str | None = None
+
+  #: The type of the parameter. This is not usually set explicitly, but automatically determined from the
+  #: type hint that the parameter is related to when using #Service.from_class().
+  type: t.Any = None
 
 
 @dataclasses.dataclass
-class Endpoint:
+class EndpointDescription:
   """ Represents a single endpoint. """
 
+  #: The name of the endpoint, derived from the function name of which
   name: str
   method: str
-  path: Path
-  args: dict[str, Argument]
+  path: HttpPath
+  args: dict[str, ArgumentDescription]
   return_type: t.Any | None
-  authentication_methods: list[AuthenticationMethod]
+  authentication_methods: list[AuthenticationConfig]
+  async_: bool
 
 
 @dataclasses.dataclass
-class Service:
+class ServiceDescription:
   """ Represents the compiled information about a service from a class definition. """
 
   name: str
-  authentication_methods: list[AuthenticationMethod]
-  endpoints: list[Endpoint]
+  authentication_methods: list[AuthenticationConfig]
+  endpoints: list[EndpointDescription]
 
-  def update(self, other: 'Service') -> 'Service':
+  def update(self, other: 'ServiceDescription') -> 'ServiceDescription':
     authentication_methods = {
       **{type(a): a for a in self.authentication_methods},
       **{type(a): a for a in other.authentication_methods},
@@ -70,56 +64,57 @@ class Service:
       **{e.name: e for e in self.endpoints},
       **{e.name: e for e in other.endpoints},
     }
-    return Service(
+    return ServiceDescription(
       other.name,
       list(authentication_methods.values()),
       list(endpoints.values()),
     )
 
   @staticmethod
-  def from_class(cls: type, include_bases: bool = False) -> 'Service':
+  def from_class(cls: type, include_bases: bool = False) -> 'ServiceDescription':
     service_annotation = get_annotation(cls, ServiceAnnotation)
-    service = Service(service_annotation.name if service_annotation else cls.__name__, [], [])
+    service = ServiceDescription(service_annotation.name if service_annotation else cls.__name__, [], [])
 
     for auth_annotation in get_annotations(cls, AuthenticationAnnotation):
-      service.authentication_methods.append(auth_annotation.authentication_method)
+      service.authentication_methods.append(auth_annotation.config)
 
     for key in dir(cls):
       value = getattr(cls, key)
       if isinstance(value, types.FunctionType) and (endpoint := get_annotation(value, EndpointAnnotation)):
-        args, return_type = parse_type_hints(
+        args, return_type = _parse_type_hints(
           type_hints=t.get_type_hints(value),
           signature=inspect.signature(value),
           endpoint=endpoint,
-          args_annotation=get_annotation(value, ArgsAnnotation) or ArgsAnnotation({}),
+          args_annotation=get_annotation(value, EndpointArgsAnnotation) or EndpointArgsAnnotation({}),
           endpoint_name=f'{cls.__name__}.{key}'
         )
-        authentication_methods = [ann.authentication_method for ann in get_annotations(value, AuthenticationAnnotation)]
+        authentication_methods = [ann.config for ann in get_annotations(value, AuthenticationAnnotation)]
         if authentication_methods and 'auth' not in args:
           raise ValueError(f'missing "auth" parameter in endpoint {endpoint.__pretty__()}')
-        service.endpoints.append(Endpoint(
+        service.endpoints.append(EndpointDescription(
           name=key,
           method=endpoint.method,
           path=endpoint.path,
           args=args,
           return_type=return_type,
           authentication_methods=authentication_methods,
+          async_=inspect.iscoroutinefunction(value),
         ))
 
     if include_bases:
       for base in reversed(cls.__bases__):
-        service = Service.from_class(base).update(service)
+        service = ServiceDescription.from_class(base).update(service)
 
     return service
 
 
-def parse_type_hints(
+def _parse_type_hints(
   type_hints: dict[str, t.Any],
   signature: inspect.Signature,
   endpoint: EndpointAnnotation,
-  args_annotation: ArgsAnnotation,
+  args_annotation: EndpointArgsAnnotation,
   endpoint_name: str,
-) -> tuple[dict[str, Argument], t.Any]:
+) -> tuple[dict[str, ArgumentDescription], t.Any]:
   """ Parses evaluated type hints to a list of arguments and the return type. """
 
   args = {}
@@ -153,9 +148,9 @@ def parse_type_hints(
       continue
     param = args_annotation.args.get(k)
     if param:
-      args[k] = Argument(param.kind, _get_default(k), param.name, v)
+      args[k] = ArgumentDescription(param.kind, _get_default(k), param.alias, v)
     elif k in endpoint.path.parameters:
-      args[k] = Argument(ParamKind.path, _get_default(k), None, v)
+      args[k] = ArgumentDescription(ParamKind.path, _get_default(k), None, v)
     else:
       delayed[k] = v
 
@@ -175,10 +170,26 @@ def parse_type_hints(
     sig_default = signature.parameters[k].default
     if sig_default is inspect._empty:
       sig_default = NotSet.Value
-    args[k] = Argument(kind, sig_default, None, v)
+    args[k] = ArgumentDescription(kind, sig_default, None, v)
 
   return_ = type_hints.get('return')
   if return_ is type(None):
     return_ = None
 
   return args, return_
+
+
+def cookie(default: t.Any | NotSet = NotSet.Value, alias: str | None = None) -> ArgumentDescription:
+  return ArgumentDescription(ParamKind.cookie, default, alias)
+
+
+def header(default: t.Any | NotSet = NotSet.Value, alias: str | None = None) -> ArgumentDescription:
+  return ArgumentDescription(ParamKind.header, default, alias)
+
+
+def path(default: t.Any | NotSet = NotSet.Value, alias: str | None = None) -> ArgumentDescription:
+  return ArgumentDescription(ParamKind.path, default, alias)
+
+
+def query(default: t.Any | NotSet = NotSet.Value, alias: str | None = None) -> ArgumentDescription:
+  return ArgumentDescription(ParamKind.query, default, alias)

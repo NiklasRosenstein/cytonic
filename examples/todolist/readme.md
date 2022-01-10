@@ -1,4 +1,4 @@
-# skye-api/examples/todolist
+# cytonic/examples/todolist
 
 A simple todo list API example using `skye-api`.
 

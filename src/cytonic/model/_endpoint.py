@@ -1,5 +1,5 @@
 
-import typing as t
+import enum
 import dataclasses
 import typing as t
 
@@ -7,8 +7,17 @@ from databind.core import Context
 from databind.core.annotations import alias
 from databind.json.annotations import with_custom_json_converter
 
-from ..runtime.endpoint import ParamKind
 from ._auth import AuthenticationConfig
+from ._http_path import HttpPath
+
+
+class ParamKind(enum.Enum):
+  auth = 'auth'
+  body = 'body'
+  cookie = 'cookie'
+  header = 'header'
+  path = 'path'
+  query = 'query'
 
 
 @with_custom_json_converter()
@@ -16,6 +25,10 @@ from ._auth import AuthenticationConfig
 class ArgumentConfig:
   type: str
   kind: ParamKind | None = None
+
+  def __post_init__(self) -> None:
+    if self.kind == ParamKind.auth:
+      raise ValueError('`ArgumentConfig.kind` cannot be `ParamKind.auth`, the `auth` parameter is auto generated')
 
   @classmethod
   def _convert_json(cls, ctx: 'Context') -> t.Any:
@@ -28,7 +41,7 @@ class ArgumentConfig:
 class EndpointConfig:
 
   #: Parametrized HTTP method and path string for the endpoint/
-  http: str
+  http: HttpPath
 
   #: Override the authentication method for this endpoint.
   auth: AuthenticationConfig | None = None
