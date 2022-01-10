@@ -55,5 +55,5 @@ setuptools.setup(
   cmdclass = {},
   keywords = [],
   classifiers = [],
-  zip_safe = True,
+  zip_safe = False,
 )
