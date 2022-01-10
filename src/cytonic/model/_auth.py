@@ -36,5 +36,5 @@ AuthenticationConfig = t.Annotated[
     'oauth2_bearer': Oauth2Bearer,
     'basic': BasicAuth,
     'none': NoAuth,
-  })
+  }, style=union.Style.flat)
 ]

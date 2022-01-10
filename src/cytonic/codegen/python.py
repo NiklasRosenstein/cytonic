@@ -55,18 +55,16 @@ class _PythonModule(_Rendererable):
     fp.write('# Do not edit; this file was automatically generated with skye-api-python.\n\n')
     _DocstringBlock(self.docs).render(level, indent, fp)
 
-    # TODO (@nrosenstein): Collapse imports from the same modules.
-
     if self.module_imports:
       fp.write('\n')
       for name in sorted(self.module_imports):
         fp.write(f'import {name}\n')
     if self.member_imports:
       fp.write('\n')
-      for name in sorted(self.member_imports):
-        assert '.' in name, repr(name)
-        from_, part = name.rpartition('.')[::2]
-        fp.write(f'from {from_} import {part}\n')
+      import itertools
+      for group_key, values in itertools.groupby(sorted(self.member_imports), lambda s: s.rpartition('.')[0]):
+        values = [x.rpartition('.')[-1] for x in values]
+        fp.write(f'from {group_key} import {", ".join(values)}\n')
     if self.members:
       for member in self.members:
         fp.write('\n')
@@ -237,7 +235,7 @@ class CodeGenerator:
   def _build_python_module(self, modules: list[ModuleConfig]) -> _PythonModule:
     python_module = _PythonModule(coding='utf-8')
     python_module.module_imports.add('dataclasses')
-    python_module.member_imports.add('skye.api.runtime.service.service')
+    python_module.member_imports.add('cytonic.description.service')
 
     for module in modules:
       for error_name, error in module.errors.items():
@@ -314,16 +312,16 @@ class CodeGenerator:
 
   def get_error_base_type(self, error_code: str, module: _PythonModule) -> str:
     if error_code == 'NOT_FOUND':
-      module.member_imports.add('skye.api.runtime.exceptions.NotFoundError')
+      module.member_imports.add('cytonic.runtime.NotFoundError')
       return 'NotFoundError'
     elif error_code == 'UNAUTHORIZED':
-      module.member_imports.add('skye.api.runtime.exceptions.UnauthorizedError')
+      module.member_imports.add('cytonic.runtime.UnauthorizedError')
       return 'UnauthorizedError'
     elif error_code == 'CONFLICT':
-      module.member_imports.add('skye.api.runtime.exceptions.ConflictError')
+      module.member_imports.add('cytonic.runtime.ConflictError')
       return 'ConflictError'
     elif error_code == 'ILLEGAL_ARGUMENT':
-      module.member_imports.add('skye.api.runtime.exceptions.IllegalArgumentError')
+      module.member_imports.add('cytonic.runtime.IllegalArgumentError')
       return 'IllegalArgumentError'
     else:
       raise ValueError(f'unknown error_code: {error_code}')
@@ -391,15 +389,15 @@ class CodeGenerator:
     from ..model._auth import BasicAuth, Oauth2Bearer, NoAuth
     if auth is None:
       return []
-    module.member_imports.add('skye.api.runtime.auth.authentication')
+    module.member_imports.add('cytonic.description.authentication')
     if isinstance(auth, Oauth2Bearer):
-      module.member_imports.add('skye.api.runtime.auth.OAuth2Bearer')
+      module.member_imports.add('cytonic.description.OAuth2Bearer')
       if auth.header_name:
         method = f'OAuth2Bearer({auth.header_name!r})'
       else:
         method = 'OAuth2Bearer()'
     elif isinstance(auth, BasicAuth):
-      module.member_imports.add('skye.api.runtime.auth.Basic')
+      module.member_imports.add('cytonic.description.Basic')
       method = 'Basic()'
     elif isinstance(auth, NoAuth):
       method = 'None'
@@ -408,8 +406,8 @@ class CodeGenerator:
     return [f'@authentication({method})']
 
   def get_endpoint_definition(self, name: str, endpoint: EndpointConfig, auth: AuthenticationConfig | None, module: _PythonModule, async_: bool) -> _PythonFunction:
-    module.member_imports.add('skye.api.runtime.endpoint.endpoint')
-    decorators = [f'@endpoint({endpoint.http!r})'] + self.get_auth_decorators(endpoint.auth, module)
+    module.member_imports.add('cytonic.description.endpoint')
+    decorators = [f'@endpoint("{endpoint.http}")'] + self.get_auth_decorators(endpoint.auth, module)
     args = ['self']
     for arg_name, arg in (endpoint.args or {}).items():
       arg_code = f'{arg_name}: {self.get_field_type(arg.type, module)}'
@@ -418,7 +416,7 @@ class CodeGenerator:
       args.append(arg_code)
 
     if auth or endpoint.auth:
-      module.member_imports.add('skye.api.runtime.auth.Credentials')
+      module.member_imports.add('cytonic.runtime.Credentials')
       args.insert(1, 'auth: Credentials')
 
     # NOTE (@nrosenstein): For now we just trigger an error if an argument name that collides with a Python
