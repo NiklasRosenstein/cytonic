@@ -44,5 +44,5 @@ class Credentials:
     return cls(config, BearerToken(token))
 
   @classmethod
-  def of_basic_auth(cls, config: BasicAuth, username: str, password: str) -> 'Credentials':
+  def of_basic_auth(cls, config: _BasicAuth, username: str, password: str) -> 'Credentials':
     return cls(config, BasicAuth(username, password))

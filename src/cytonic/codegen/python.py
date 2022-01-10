@@ -63,8 +63,8 @@ class _PythonModule(_Rendererable):
       fp.write('\n')
       import itertools
       for group_key, values in itertools.groupby(sorted(self.member_imports), lambda s: s.rpartition('.')[0]):
-        values = [x.rpartition('.')[-1] for x in values]
-        fp.write(f'from {group_key} import {", ".join(values)}\n')
+        members = [x.rpartition('.')[-1] for x in values]
+        fp.write(f'from {group_key} import {", ".join(members)}\n')
     if self.members:
       for member in self.members:
         fp.write('\n')
@@ -223,12 +223,12 @@ class CodeGenerator:
       self._current_module_name = name
       self._current_module = module
       self._current_types_already_rendered = set()
-      module = self._build_python_module(module)
+      python_module = self._build_python_module(module)
       with writer.open(Path(self.prefix) / (name.replace('.', '/') + '.py')) as fp:
-        module.render(0, indent, fp)
+        python_module.render(0, indent, fp)
 
     if self.package:
-      with writer.open(self.prefix / self.package.replace('.', '/') / '__init__.py') as fp:
+      with writer.open(Path(self.prefix) / self.package.replace('.', '/') / '__init__.py') as fp:
         for module_name in self.modules:
           fp.write(f'from {module_name} import *\n')
 
@@ -359,7 +359,7 @@ class CodeGenerator:
       if len(split_parameters) != num_params:
         raise ValueError(f'type {type_} requires {num_params} parameters, got {len(split_parameters)}')
 
-      custom_types_in_parameters = []
+      custom_types_in_parameters: list[tuple[str, str]] = []
       split_parameters = [self.get_field_type(x, module, custom_types_in_parameters) for x in split_parameters]
 
       # Special handling for the optional type, if we need to use a forward reference then we cannot
@@ -441,6 +441,7 @@ class ProjectGenerator:
     assert self.package or self.module
 
     writer = _FileWriter(stdout)
+    prefix = Path(self.prefix)
 
     if not self.version:
       self.version = '0.0.0'
@@ -448,9 +449,9 @@ class ProjectGenerator:
       self.description = 'Auto-generated API bindings.'
 
     if self.package:
-      with writer.open(self.prefix / 'src' / self.package.replace('.', '/') / 'py.typed'): ...
+      with writer.open(prefix / 'src' / self.package.replace('.', '/') / 'py.typed'): ...
 
-    with writer.open(self.prefix / 'pyproject.toml') as fp:
+    with writer.open(prefix / 'pyproject.toml') as fp:
       fp.write('\n'.join([
         '[build-system]',
         'requires = ["flit_core >=3.2,<4"]',
@@ -568,7 +569,7 @@ def main():
 
   codegen = CodeGenerator(args.prefix, args.package)
   if args.module:
-    codegen.modules = {args.module: list(project.items.values())}
+    codegen.modules = {args.module: list(project.modules.values())}
   else:
     codegen.modules = {args.package + '.' + k: [m] for k, m in project.modules.items()}
   codegen.write(stdout=args.stdout)

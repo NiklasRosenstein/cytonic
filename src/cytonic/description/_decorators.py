@@ -51,7 +51,8 @@ def authentication(config: AuthenticationConfig | type[AuthenticationConfig]) ->
     config = config()
 
   def _decorator(obj: T) -> T:
-    add_annotation(obj, AuthenticationAnnotation, AuthenticationAnnotation(config), front=True)
+    annotation = AuthenticationAnnotation(t.cast(AuthenticationConfig, config))
+    add_annotation(obj, AuthenticationAnnotation, annotation, front=True)
     return obj
 
   return _decorator

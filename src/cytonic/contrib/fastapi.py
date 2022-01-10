@@ -4,7 +4,6 @@
 import base64
 import logging
 import textwrap
-import types
 import typing as t
 
 import databind.json
@@ -58,9 +57,6 @@ async def _get_credentials(
 ) -> Credentials:
   """ Helper function to extract the first matching of a list of authentication methods."""
 
-  if not authentication_methods:
-    return Credentials(None, None)
-
   unauthorized_errors = []
   for method in authentication_methods:
     try:
@@ -77,7 +73,11 @@ async def _get_credentials(
 
   if len(unauthorized_errors) == 1:
     raise unauthorized_errors[0]
-  raise UnauthorizedError('no valid authentication method satisfied', authentication_errors=[str(x) for x in unauthorized_errors])
+
+  raise UnauthorizedError(
+    Safe('no valid authentication method satisfied'),
+    authentication_errors=Safe([str(x) for x in unauthorized_errors]),
+  )
 
 
 class CytonicServiceRouter(fastapi.APIRouter):
@@ -109,7 +109,7 @@ class CytonicServiceRouter(fastapi.APIRouter):
         name=endpoint.name,
       )
 
-  def _get_endpoint_handler(self, endpoint: EndpointDescription) -> types.FunctionType:
+  def _get_endpoint_handler(self, endpoint: EndpointDescription) -> t.Callable:
     """ Internal. Constructs a handler for the given endpoint. """
 
     # TODO (@nrosenstein): De-serialize parameters using databind.json instead of relying on the default?
