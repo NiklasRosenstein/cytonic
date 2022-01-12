@@ -17,3 +17,10 @@ class Project:
     if module_name in self.modules:
       raise ValueError(f'module {module_name!r} already in project')
     self.modules[module_name] = config
+
+  @classmethod
+  def from_files(cls, files: list[str | Path]) -> 'Project':
+    project = cls()
+    for filename in map(Path, files):
+      project.add(filename.stem, filename)
+    return project

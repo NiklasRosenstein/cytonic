@@ -50,6 +50,7 @@ setuptools.setup(
   entry_points = {
     'console_scripts': [
       'cytonic-codegen-python = cytonic.codegen.python:main',
+      'cytonic-codegen-typescript = cytonic.codegen.typescript:main',
     ]
   },
   cmdclass = {},

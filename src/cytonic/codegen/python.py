@@ -24,7 +24,7 @@ from nr.util.singleton import NotSet
 
 from cytonic import __version__
 from cytonic.model import AuthenticationConfig, EndpointConfig, ErrorConfig, ModuleConfig, Project, TypeConfig
-
+from ._util import FileOpener
 
 def _format_docstrings(level: int, indent: str, docs: str, width: int = 119) -> str:
   width -= level * len(indent)
@@ -167,24 +167,6 @@ class _PythonClass(_Rendererable):
 
 
 @dataclasses.dataclass
-class _FileWriter:
-
-  stdout: bool = False
-
-  @contextlib.contextmanager
-  def open(self, filename: Path | str) -> t.Generator[t.TextIO, None, None]:
-    if self.stdout:
-      print('#', filename)
-      yield sys.stdout
-    else:
-      filename = Path(filename)
-      filename.parent.mkdir(parents=True, exist_ok=True)
-      print('Write', filename)
-      with filename.open('w') as fp:
-        yield fp
-
-
-@dataclasses.dataclass
 class CodeGenerator:
   """ A class to render Python code from a Skye-API definition. """
 
@@ -220,7 +202,7 @@ class CodeGenerator:
   def write(self, stdout: bool = False, indent: str = '  ') -> None:
     """ Writes the contents of one or more modules into a Python module with the specified name. """
 
-    writer = _FileWriter(stdout)
+    writer = FileOpener.with_indicator(stdout, '#')
     for name, module in self.modules.items():
       self._current_module_name = name
       self._current_module = module
@@ -439,7 +421,7 @@ class ProjectGenerator:
   def write(self, stdout: bool = False) -> None:
     assert self.package or self.module
 
-    writer = _FileWriter(stdout)
+    writer = FileOpener.with_indicator(stdout, '#')
     prefix = Path(self.prefix)
 
     if not self.version:
@@ -557,10 +539,7 @@ def main():
   if args.description and not args.installable:
     parser.error('--description can only be used with --installable')
 
-  # Load the configuration files into a project.
-  project = Project()
-  for filename in map(Path, args.files):
-    project.add(filename.stem, filename)
+  project = Project.from_files(args.files)
 
   # Configure the code generator.
   if args.installable:
