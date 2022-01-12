@@ -8,50 +8,7 @@ import typing as t
 from pathlib import Path
 
 from nr.util.generic import T
-
-
-class CodeWriter:
-  """
-  Helper class to generate code, automatically indenting lines per the current indentation level.
-  """
-
-  def __init__(self, fp: t.TextIO, indent: str) -> None:
-    self._fp = fp
-    self._level = 0
-    self._indent = indent
-
-  @property
-  def prefix_length(self) -> int:
-    return self._level * len(self._indent)
-
-  @contextlib.contextmanager
-  def indented(self, add_level: int = 1) -> t.Iterable[None]:
-    self._level += add_level
-    try:
-      yield
-    finally:
-      self._level -= add_level
-
-  def writeline(self, text: str) -> None:
-    text = text.rstrip()
-    self._fp.write(self._indent * self._level)
-    self._fp.write(text)
-    if not text.endswith('\n'):
-      self._fp.write('\n')
-
-  def writelines(self, lines: list[str]) -> None:
-    for line in lines:
-      self.writeline(line)
-
-  def write(self, text: str) -> None:
-    for line in text.splitlines():
-      if not line:
-        self._fp.write('\n')
-      else:
-        self.writeline(line)
-
-  def blank(self, num: int = 1) -> None:
-    self._fp.write('\n' * num)
+from cytonic.model import Project
 
 
 @dataclasses.dataclass
@@ -103,3 +60,63 @@ class TypeConverter(t.Generic[T]):
   @abc.abstractmethod
   def create_type(self, type_name: str, parameters: list[str]) -> T:
     ...
+
+
+@dataclasses.dataclass
+class DefaultTypeConverter(TypeConverter[str]):
+  """
+  A helper class for type conversion. To create a new type converter for a language, follow these steps:
+
+  1. fill the #TYPE_TEMPLATES mapping with key-value pairs for the built-in types in Cytonic
+  2. implement the #get_module_id() and #do_import_type() methods
+  """
+
+  project: Project
+  TYPE_TEMPLATES: t.ClassVar[dict[str, str]] = {}
+
+  BUILTIN_TYPES = [
+    'any',
+    'string',
+    'integer',
+    'double',
+    'boolean',
+    'datetime',
+    'decimal',
+    'list',
+    'set',
+    'map',
+    'optional',
+  ]
+
+  def __init_subclass__(cls) -> None:
+    missing_templates = set(cls.BUILTIN_TYPES) - cls.TYPE_TEMPLATES.keys()
+    if missing_templates:
+      raise RuntimeError(f'missing type templates in {cls.__name__}: {missing_templates}')
+
+  def __post_init__(self) -> None:
+    self.imported_types: set[str] = set()
+
+  def create_type(self, type_name: str, parameters: list[str] | None) -> str:
+    if type_name in self.TYPE_TEMPLATES:
+      type_template = self.TYPE_TEMPLATES[type_name]
+      num_parameters = type_template.count('?')
+      parameters = parameters or []
+      if num_parameters != len(parameters):
+        raise ValueError(f'type {type_name} requires {num_parameters} but got {len(parameters)}')
+      parameters = [self.convert_type_string(s) for s in parameters]
+      final_type = type_template.replace('?', '{}').format(*parameters)
+      return self.visit_type(final_type, None)
+
+    if type_name in self.imported_types:
+      return self.visit_type(type_name, None)
+
+    type_locator = self.project.find_type(type_name)
+    if type_locator:
+      self.imported_types.add(type_name)
+      type_name = self.visit_type(type_name, type_locator)
+      return type_name
+
+    raise ValueError(f'type {type_name} does not exist')
+
+  def visit_type(self, rendered_type: str, type_locator: Project.TypeLocator | None) -> str:
+    return rendered_type

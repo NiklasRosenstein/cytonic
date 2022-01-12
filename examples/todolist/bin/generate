@@ -3,3 +3,4 @@
 dir="$(dirname $(dirname ${BASH_SOURCE[0]}))"
 rm -rf $dir/src/todolist/api/
 cytonic-codegen-python $dir/src/cytonic/*.yml --prefix $dir/src/python/ --package todolist.api
+cytonic-codegen-typescript $dir/src/cytonic/*.yml --prefix $dir/src/typescript/todolist/api/

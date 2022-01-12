@@ -7,7 +7,7 @@ from ._module import ModuleConfig, load_module
 
 
 @dataclasses.dataclass
-class _TypeDetails:
+class TypeLocator:
   module_name: str
   module: ModuleConfig
   type_name: str
@@ -17,6 +17,8 @@ class _TypeDetails:
 class Project:
 
   modules: dict[str, ModuleConfig] = dataclasses.field(default_factory=dict)
+
+  TypeLocator: t.ClassVar = TypeLocator
 
   @classmethod
   def from_files(cls, files: list[str | Path]) -> 'Project':
@@ -32,8 +34,8 @@ class Project:
       raise ValueError(f'module {module_name!r} already in project')
     self.modules[module_name] = config
 
-  def find_type(self, type_name: str) -> _TypeDetails | None:
+  def find_type(self, type_name: str) -> TypeLocator | None:
     for module_name, module in self.modules.items():
       if type_name in module.types:
-        return _TypeDetails(module_name, module, type_name)
+        return TypeLocator(module_name, module, type_name)
     return None

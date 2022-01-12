@@ -13,7 +13,6 @@ import abc
 import argparse
 import builtins
 import dataclasses
-import re
 import textwrap
 import typing as t
 from pathlib import Path
@@ -22,7 +21,7 @@ from nr.util.singleton import NotSet
 
 from cytonic import __version__
 from cytonic.model import AuthenticationConfig, EndpointConfig, ErrorConfig, ModuleConfig, Project, TypeConfig
-from ._util import FileOpener, TypeConverter
+from ._util import FileOpener, DefaultTypeConverter
 
 
 def _format_docstrings(level: int, indent: str, docs: str, width: int = 119) -> str:
@@ -37,6 +36,7 @@ def _format_docstrings(level: int, indent: str, docs: str, width: int = 119) -> 
 
 
 class _Rendererable(abc.ABC):
+
   @abc.abstractmethod
   def render(self, level: int, indent: str, fp: t.TextIO) -> None:
     ...
@@ -166,18 +166,16 @@ class _PythonClass(_Rendererable):
 
 
 @dataclasses.dataclass
-class _PythonTypeConverter(TypeConverter[str]):
+class PythonTypeConverter(DefaultTypeConverter):
 
-  project: Project
-  get_module_id: t.Callable[[ModuleConfig], str]
-  do_import_type: t.Callable[[str], t.Any]
-  imported_types: set[str] = dataclasses.field(default_factory=set)
+  python_module: _PythonModule
+  current_module: str
+  modules: dict[str, list[ModuleConfig]]
 
-  BUILTIN_TYPES = {
+  TYPE_TEMPLATES = {
     'any': 'typing.Any',
     'string': 'str',
     'integer': 'int',
-    'float': 'float',
     'double': 'float',
     'boolean': 'bool',
     'datetime': 'datetime.datetime',
@@ -188,27 +186,25 @@ class _PythonTypeConverter(TypeConverter[str]):
     'optional': 'typing.Optional[?]',
   }
 
-  def create_type(self, type_name: str, parameters: list[str] | None) -> str:
-    if type_name in self.BUILTIN_TYPES:
-      python_template = self.BUILTIN_TYPES[type_name]
-      num_parameters = python_template.count('?')
-      parameters = parameters or []
-      if num_parameters != len(parameters):
-        raise ValueError(f'type {type_name} requires {num_parameters} but got {len(parameters)}')
-      parameters = [self.convert_type_string(s) for s in parameters]
-      return python_template.replace('?', '{}').format(*parameters)
+  def __post_init__(self) -> None:
+    super().__post_init__()
+    assert self.python_module is not None
+    assert self.current_module is not None
+    assert self.modules is not None
 
-    if type_name in self.imported_types:
-      return type_name
-
-    type_info = self.project.find_type(type_name)
-    if type_info:
-      module_name = self.get_module_id(type_info.module)
-      self.do_import_type(module_name + '.' + type_name)
-      self.imported_types.add(type_name)
-      return type_name
-
-    raise ValueError(f'type {type_name} does not exist')
+  def visit_type(self, rendered_type: str, type_locator: Project.TypeLocator) -> None:
+    if type_locator:
+      for key, value in self.modules.items():
+        if type_locator.module in value:
+          module_id = key
+          break
+      else:
+        raise ValueError(type_locator)
+      if module_id != self.current_module:
+        self.python_module.member_imports.add(module_id + '.' + type_locator.type_name)
+    elif '.' in rendered_type:
+      self.python_module.module_imports.add(rendered_type.rpartition('.')[0])
+    return rendered_type
 
 
 @dataclasses.dataclass
@@ -223,14 +219,15 @@ class CodeGenerator:
   PYTHON_KEYWORDS = ['from', 'import', 'as', 'with', 'for', 'in', 'while', 'try', 'except', 'finally']
   BUILTIN_NAMES = PYTHON_KEYWORDS + dir(builtins) + ['request', 'auth']
 
-  _type_converter: _PythonTypeConverter = t.cast(t.Any, None)
+  def __post_init__(self) -> None:
+    self._type_converter = t.cast(PythonTypeConverter, None)
 
   def write(self, stdout: bool = False, indent: str = '  ') -> None:
     """ Writes the contents of one or more modules into a Python module with the specified name. """
 
     writer = FileOpener.with_indicator(stdout, '#')
     for name, module in self.modules.items():
-      python_module = self._build_python_module(module)
+      python_module = self._build_python_module(name, module)
       with writer.open(Path(self.prefix) / (name.replace('.', '/') + '.py')) as fp:
         python_module.render(0, indent, fp)
 
@@ -239,21 +236,16 @@ class CodeGenerator:
         for module_name in self.modules:
           fp.write(f'from {module_name} import *\n')
 
-  def _get_module_id(self, module: ModuleConfig) -> None:
-    for key, value in self.modules.items():
-      if module in value:
-        return key
-    raise ValueError(module)
-
-  def _build_python_module(self, modules: list[ModuleConfig]) -> _PythonModule:
+  def _build_python_module(self, name: str, modules: list[ModuleConfig]) -> _PythonModule:
     python_module = _PythonModule(coding='utf-8')
     python_module.module_imports.add('dataclasses')
     python_module.member_imports.add('cytonic.description.service')
 
-    self._type_converter = _PythonTypeConverter(
+    self._type_converter = PythonTypeConverter(
       project=self.project,
-      get_module_id=self._get_module_id,
-      do_import_type=lambda fqn: python_module.member_imports.add(fqn),
+      python_module=python_module,
+      current_module=name,
+      modules=self.modules,
     )
 
     for module in modules:

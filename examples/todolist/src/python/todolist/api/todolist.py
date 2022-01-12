@@ -5,6 +5,7 @@
 import abc
 import dataclasses
 import datetime
+import typing
 
 from cytonic.description import authentication, endpoint, service
 from cytonic.model import OAuth2Bearer
@@ -41,17 +42,17 @@ class TodoListServiceBlocking(abc.ABC):
 
   @endpoint("GET /lists")
   @abc.abstractmethod
-  def get_lists(self, auth: Credentials) -> list[TodoList]:
+  def get_lists(self, auth: Credentials) -> typing.List[TodoList]:
     pass
 
   @endpoint("GET /lists/{list_id}/items")
   @abc.abstractmethod
-  def get_items(self, auth: Credentials, list_id: str) -> list[TodoItem]:
+  def get_items(self, auth: Credentials, list_id: str) -> typing.List[TodoItem]:
     pass
 
   @endpoint("POST /lists/{list_id}/items")
   @abc.abstractmethod
-  def set_items(self, auth: Credentials, list_id: str, items: list[TodoItem]) -> None:
+  def set_items(self, auth: Credentials, list_id: str, items: typing.List[TodoItem]) -> None:
     pass
 
 
@@ -62,15 +63,15 @@ class TodoListServiceAsync(abc.ABC):
 
   @endpoint("GET /lists")
   @abc.abstractmethod
-  async def get_lists(self, auth: Credentials) -> list[TodoList]:
+  async def get_lists(self, auth: Credentials) -> typing.List[TodoList]:
     pass
 
   @endpoint("GET /lists/{list_id}/items")
   @abc.abstractmethod
-  async def get_items(self, auth: Credentials, list_id: str) -> list[TodoItem]:
+  async def get_items(self, auth: Credentials, list_id: str) -> typing.List[TodoItem]:
     pass
 
   @endpoint("POST /lists/{list_id}/items")
   @abc.abstractmethod
-  async def set_items(self, auth: Credentials, list_id: str, items: list[TodoItem]) -> None:
+  async def set_items(self, auth: Credentials, list_id: str, items: typing.List[TodoItem]) -> None:
     pass
