@@ -12,10 +12,8 @@ in three different formats:
 import abc
 import argparse
 import builtins
-import contextlib
 import dataclasses
 import re
-import sys
 import textwrap
 import typing as t
 from pathlib import Path

@@ -4,6 +4,7 @@ author: Niklas Rosenstein <rosensteinniklas@gmail.com>
 description: A Python framework to define REST APIs and automatically generate server side bindings and clients.
 license: MIT
 url: https://gitea.nkl.st/_/cytonic
+source-directory: src/python/
 typed: true
 requirements:
   - python ^3.10
