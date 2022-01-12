@@ -22,7 +22,8 @@ from nr.util.singleton import NotSet
 
 from cytonic import __version__
 from cytonic.model import AuthenticationConfig, EndpointConfig, ErrorConfig, ModuleConfig, Project, TypeConfig
-from ._util import FileOpener
+from ._util import FileOpener, TypeConverter
+
 
 def _format_docstrings(level: int, indent: str, docs: str, width: int = 119) -> str:
   width -= level * len(indent)
@@ -165,12 +166,12 @@ class _PythonClass(_Rendererable):
 
 
 @dataclasses.dataclass
-class CodeGenerator:
-  """ A class to render Python code from a Skye-API definition. """
+class _PythonTypeConverter(TypeConverter[str]):
 
-  prefix: Path | str
-  package: str | None = None
-  modules: dict[str, list[ModuleConfig]] = dataclasses.field(default_factory=dict)
+  project: Project
+  get_module_id: t.Callable[[ModuleConfig], str]
+  do_import_type: t.Callable[[str], t.Any]
+  imported_types: set[str] = dataclasses.field(default_factory=set)
 
   BUILTIN_TYPES = {
     'any': 'typing.Any',
@@ -181,30 +182,54 @@ class CodeGenerator:
     'boolean': 'bool',
     'datetime': 'datetime.datetime',
     'decimal': 'decimal.Decimal',
-  }
-
-  PARAMETRIZED_TYPES = {
     'list': 'typing.List[?]',
     'set': 'typing.Set[?]',
     'map': 'typing.Dict[?, ?]',
     'optional': 'typing.Optional[?]',
   }
 
+  def create_type(self, type_name: str, parameters: list[str] | None) -> str:
+    if type_name in self.BUILTIN_TYPES:
+      python_template = self.BUILTIN_TYPES[type_name]
+      num_parameters = python_template.count('?')
+      parameters = parameters or []
+      if num_parameters != len(parameters):
+        raise ValueError(f'type {type_name} requires {num_parameters} but got {len(parameters)}')
+      parameters = [self.convert_type_string(s) for s in parameters]
+      return python_template.replace('?', '{}').format(*parameters)
+
+    if type_name in self.imported_types:
+      return type_name
+
+    type_info = self.project.find_type(type_name)
+    if type_info:
+      module_name = self.get_module_id(type_info.module)
+      self.do_import_type(module_name + '.' + type_name)
+      self.imported_types.add(type_name)
+      return type_name
+
+    raise ValueError(f'type {type_name} does not exist')
+
+
+@dataclasses.dataclass
+class CodeGenerator:
+  """ A class to render Python code from a Skye-API definition. """
+
+  prefix: Path | str
+  project: Project
+  package: str | None = None
+  modules: dict[str, list[ModuleConfig]] = dataclasses.field(default_factory=dict)
+
   PYTHON_KEYWORDS = ['from', 'import', 'as', 'with', 'for', 'in', 'while', 'try', 'except', 'finally']
   BUILTIN_NAMES = PYTHON_KEYWORDS + dir(builtins) + ['request', 'auth']
 
-  _current_module_name: str = t.cast(t.Any, None)
-  _curernt_module: ModuleConfig = t.cast(t.Any, None)
-  _current_types_already_rendered: set[str] = t.cast(t.Any, None)
+  _type_converter: _PythonTypeConverter = t.cast(t.Any, None)
 
   def write(self, stdout: bool = False, indent: str = '  ') -> None:
     """ Writes the contents of one or more modules into a Python module with the specified name. """
 
     writer = FileOpener.with_indicator(stdout, '#')
     for name, module in self.modules.items():
-      self._current_module_name = name
-      self._current_module = module
-      self._current_types_already_rendered = set()
       python_module = self._build_python_module(module)
       with writer.open(Path(self.prefix) / (name.replace('.', '/') + '.py')) as fp:
         python_module.render(0, indent, fp)
@@ -214,10 +239,22 @@ class CodeGenerator:
         for module_name in self.modules:
           fp.write(f'from {module_name} import *\n')
 
+  def _get_module_id(self, module: ModuleConfig) -> None:
+    for key, value in self.modules.items():
+      if module in value:
+        return key
+    raise ValueError(module)
+
   def _build_python_module(self, modules: list[ModuleConfig]) -> _PythonModule:
     python_module = _PythonModule(coding='utf-8')
     python_module.module_imports.add('dataclasses')
     python_module.member_imports.add('cytonic.description.service')
+
+    self._type_converter = _PythonTypeConverter(
+      project=self.project,
+      get_module_id=self._get_module_id,
+      do_import_type=lambda fqn: python_module.member_imports.add(fqn),
+    )
 
     for module in modules:
       for error_name, error in module.errors.items():
@@ -236,7 +273,7 @@ class CodeGenerator:
       docs=config.docs,
       decorators=['@dataclasses.dataclass'],
       fields=[
-        _PythonClassField(k, self.get_field_type(f.type, module), repr(f.default) if f.default is not NotSet.Value else None, f.docs) for k, f in config.fields.items()
+        _PythonClassField(k, self.get_field_type(f.type), repr(f.default) if f.default is not NotSet.Value else None, f.docs) for k, f in config.fields.items()
       ] if config.fields else []
     )
 
@@ -277,9 +314,9 @@ class CodeGenerator:
 
     if type_.extends:
       # TODO (@nrosenstein): Ensure that the type being extended is available in the curernt module.
-      class_.bases = [self.get_field_type(type_.extends, module)]
+      class_.bases = [self.get_field_type(type_.extends)]
 
-    self._current_types_already_rendered.add(name)
+    self._type_converter.imported_types.add(name)
     module.members.append(class_)
 
   def add_service_definition(self, module: ModuleConfig, python_module: _PythonModule, async_: bool) -> None:
@@ -308,13 +345,7 @@ class CodeGenerator:
     else:
       raise ValueError(f'unknown error_code: {error_code}')
 
-  def get_field_type(
-    self,
-    type_: str,
-    module: _PythonModule,
-    collect_custom_types_to: list[tuple[str, str]] | None = None,
-    add_imports: bool = True,
-  ) -> str:
+  def get_field_type(self, type_: str) -> str:
     """
     Gets the Python type name for the given type name in the YAML configuration.
 
@@ -322,47 +353,7 @@ class CodeGenerator:
     :param add_imports: Add imports to the *module* (default: true).
     """
 
-    match = re.match(r'(\w+)(?:\[(.+)\])?', type_)
-    if not match:
-      raise ValueError(f'what\'s dis? {type_!r}')
-
-    type_, parameters = match.groups()
-
-    if python_type := self.BUILTIN_TYPES.get(type_):
-      if parameters:
-        raise ValueError(f'type {type_} cannot be parametrized')
-      if '.'in python_type and add_imports:
-        module.module_imports.add(python_type.rpartition('.')[0])
-      return python_type
-
-    if python_type := self.PARAMETRIZED_TYPES.get(type_):
-      split_parameters = [x.strip() for x in parameters.split(',')] if parameters else []
-      num_params = python_type.count('?')
-      if len(split_parameters) != num_params:
-        raise ValueError(f'type {type_} requires {num_params} parameters, got {len(split_parameters)}')
-
-      custom_types_in_parameters: list[tuple[str, str]] = []
-      split_parameters = [self.get_field_type(x, module, custom_types_in_parameters) for x in split_parameters]
-
-      code = python_type.replace('?', '{}').format(*split_parameters)
-      if code.startswith('typing.'):
-        module.module_imports.add('typing')
-
-      return code
-
-    # Try to resolve the type in the available modules.
-    for module_name, modules in self.modules.items():
-      for module_cfg in modules:
-        if type_ in module_cfg.types:
-          available = (type_ in self._current_types_already_rendered)
-          if self._current_module_name != module_name and add_imports:
-            module.member_imports.add(module_name + '.' + type_)
-            available = True
-          if collect_custom_types_to is not None:
-            collect_custom_types_to.append((module_name, type_))
-          return repr(type_) if not available else type_
-
-    raise ValueError(f'unknown type: {type_}')
+    return self._type_converter.convert_type_string(type_)
 
   def get_auth_decorators(self, auth: AuthenticationConfig | None, module: _PythonModule) -> list[str]:
     if auth is None:
@@ -377,7 +368,7 @@ class CodeGenerator:
     decorators = [f'@endpoint("{endpoint.http}")'] + self.get_auth_decorators(endpoint.auth, module)
     args = ['self']
     for arg_name, arg in (endpoint.args or {}).items():
-      arg_code = f'{arg_name}: {self.get_field_type(arg.type, module)}'
+      arg_code = f'{arg_name}: {self.get_field_type(arg.type)}'
       if arg.type.startswith('optional['):
         arg_code += ' = None'
       args.append(arg_code)
@@ -397,7 +388,7 @@ class CodeGenerator:
     return _PythonFunction(
       name=name,
       args=args,
-      return_type=self.get_field_type(endpoint.return_, module) if endpoint.return_ else 'None',
+      return_type=self.get_field_type(endpoint.return_) if endpoint.return_ else 'None',
       docs=endpoint.docs,
       decorators=decorators + ['@abc.abstractmethod'],
       body=['pass'],
@@ -543,7 +534,7 @@ def main():
   if args.installable:
     args.prefix = args.installable / 'src'
 
-  codegen = CodeGenerator(args.prefix, args.package)
+  codegen = CodeGenerator(args.prefix, project, args.package)
   if args.module:
     codegen.modules = {args.module: list(project.modules.values())}
   else:

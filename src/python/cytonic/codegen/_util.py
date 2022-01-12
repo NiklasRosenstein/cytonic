@@ -1,9 +1,13 @@
 
+import abc
 import contextlib
 import dataclasses
+import re
 import sys
 import typing as t
 from pathlib import Path
+
+from nr.util.generic import T
 
 
 class CodeWriter:
@@ -78,3 +82,24 @@ class FileOpener:
       lambda fn: print(f'\n{stdout_indicator} {fn}'),
       lambda fn, fp: print(f'{fs_indicator} {fn}'),
     )
+
+
+class TypeConverter(t.Generic[T]):
+  """
+  A helper class to convert type strings as defined in the YAML specification to other forms of representation.
+  The type parameter *T* is the data type which represents the type in its new form.
+  """
+
+  def convert_type_string(self, type_string: str) -> T:
+    match = re.match(r'(\w+)(?:\[(.+)\])?', type_string)
+    if not match:
+      raise ValueError(f'what\'s dis? {type_string!r}')
+
+    type_name, parameters_string = match.groups()
+    parameters = None if parameters_string is None else [x.strip() for x in parameters_string.split(',')]
+
+    return self.create_type(type_name, parameters)
+
+  @abc.abstractmethod
+  def create_type(self, type_name: str, parameters: list[str]) -> T:
+    ...
