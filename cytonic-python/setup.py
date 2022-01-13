@@ -7,14 +7,6 @@ import os
 import setuptools
 import sys
 
-readme_file = 'readme.md'
-if os.path.isfile(readme_file):
-  with io.open(readme_file, encoding='utf8') as fp:
-    long_description = fp.read()
-else:
-  print("warning: file \"{}\" does not exist.".format(readme_file), file=sys.stderr)
-  long_description = None
-
 requirements = [
   'databind.json >=1.3.2,<2.0.0',
   'nr.util >=0.2.1,<1.0.0',
@@ -35,12 +27,12 @@ setuptools.setup(
   author = 'Niklas Rosenstein',
   author_email = 'rosensteinniklas@gmail.com',
   description = 'A Python framework to define REST APIs and automatically generate server side bindings and clients.',
-  long_description = long_description,
-  long_description_content_type = 'text/markdown',
+  long_description = None,
+  long_description_content_type = None,
   url = 'https://gitea.nkl.st/_/cytonic',
   license = 'MIT',
-  packages = setuptools.find_packages('src/python/', ['test', 'test.*', 'tests', 'tests.*', 'docs', 'docs.*']),
-  package_dir = {'': 'src/python/'},
+  packages = setuptools.find_packages('src', ['test', 'test.*', 'tests', 'tests.*', 'docs', 'docs.*']),
+  package_dir = {'': 'src'},
   include_package_data = True,
   install_requires = requirements,
   extras_require = extras_require,
