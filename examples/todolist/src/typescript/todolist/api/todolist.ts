@@ -13,8 +13,11 @@ export interface TodoItem {
   created_at: Date;
 }
 
-export class TodoListNotFoundError extends ServiceException {
-  public constructor(public list_id: string) { super(); }
+export interface TodoListNotFoundError extends ServiceException {
+  error_name: 'TodoList:TodoListNotFound'
+  parameters: {
+    list_id: string,
+  }
 }
 
 /**

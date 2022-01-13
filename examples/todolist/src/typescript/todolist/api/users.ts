@@ -5,8 +5,11 @@ export interface User {
   email: string;
 }
 
-export class UserNotFoundError extends ServiceException {
-  public constructor(public user_id: string) { super(); }
+export interface UserNotFoundError extends ServiceException {
+  error_name: 'Users:UserNotFound'
+  parameters: {
+    user_id: string,
+  }
 }
 
 /**

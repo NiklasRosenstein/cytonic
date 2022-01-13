@@ -70,6 +70,7 @@ class TypescriptGenerator:
     opener = FileOpener.with_indicator(self.stdout, '//')
     for module_name, module in self.project.modules.items():
       filename = Path(self.prefix) / (module_name + '.ts')
+      self._module = module
       self._type_converter = TypeScriptTypeConverter(self.project)
       self._writer = CodeWriter(self.indent)
       imports = self._writer.section()
@@ -121,13 +122,15 @@ class TypescriptGenerator:
   def _write_error(self, error_name: str, error: ErrorConfig) -> None:
     self._write_docs(error.docs, 0)
     base_class = self._type_converter.visit_type('Cytonic.ServiceException', None)
-    self._writer.writeline(f'export class {error_name}Error extends {base_class} {{')  # TODO
+    self._writer.writeline(f'export interface {error_name}Error extends {base_class} {{')  # TODO
     with self._writer.indented():
+      self._writer.writeline(f"error_name: '{self._module.name}:{error_name}'")
       if error.fields:
-        lines = []
-        for field_name, field in error.fields.items():
-          lines.append(f'public {field_name}: {self._get_field_type(field.type)}')
-        self._writer.writeline('public constructor(' + ', '.join(lines) + ') { super(); }')
+        self._writer.writeline('parameters: {')
+        with self._writer.indented():
+          for field_name, field in error.fields.items():
+            self._writer.writeline(f'{field_name}: {self._get_field_type(field.type)},')
+        self._writer.writeline('}')
     # TODO: Write logic to serialize/deserialize the error
     self._writer.writeline('}')
 
