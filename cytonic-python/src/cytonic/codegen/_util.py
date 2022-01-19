@@ -107,9 +107,6 @@ class DefaultTypeConverter(TypeConverter[str]):
       final_type = type_template.replace('?', '{}').format(*parameters)
       return self.visit_type(final_type, None)
 
-    if type_name in self.imported_types:
-      return self.visit_type(type_name, None)
-
     type_locator = self.project.find_type(type_name)
     if type_locator:
       self.imported_types.add(type_name)

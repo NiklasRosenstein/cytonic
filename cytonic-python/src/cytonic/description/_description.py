@@ -39,7 +39,6 @@ class EndpointDescription:
 
   #: The name of the endpoint, derived from the function name of which
   name: str
-  method: str
   path: HttpPath
   args: dict[str, ArgumentDescription]
   return_type: t.Any | None
@@ -93,7 +92,6 @@ class ServiceDescription:
           raise ValueError(f'missing "auth" parameter in endpoint {endpoint.__pretty__()}')
         service.endpoints.append(EndpointDescription(
           name=key,
-          method=endpoint.method,
           path=endpoint.path,
           args=args,
           return_type=return_type,
@@ -162,7 +160,7 @@ def _parse_type_hints(
   for k, v in delayed.items():
     if v == Credentials:
       kind = ParamKind.auth
-    elif not body_args and endpoint.method not in ('GET', 'HEAD', 'OPTIONS'):
+    elif not body_args and endpoint.path.method not in ('GET', 'HEAD', 'OPTIONS'):
       kind = ParamKind.body
       body_args.add(k)
     else:

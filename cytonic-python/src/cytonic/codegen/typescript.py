@@ -7,10 +7,11 @@ import textwrap
 import typing as t
 from pathlib import Path
 
+import databind.json
 from nr.util.generic import T
 
-from cytonic.model import ErrorConfig, ModuleConfig, Project, TypeConfig
-from ._codewriter import CodeWriter
+from cytonic.model import ErrorConfig, ModuleConfig, Project, TypeConfig, AuthenticationConfig
+from .core._codewriter import CodeWriter
 from ._util import FileOpener, DefaultTypeConverter
 
 
@@ -55,6 +56,38 @@ class TypeScriptTypeConverter(DefaultTypeConverter):
 
 
 @dataclasses.dataclass
+class TypeScriptTypeToDescriptorConverter(DefaultTypeConverter):
+
+  type_converter: TypeScriptTypeConverter
+
+  TYPE_TEMPLATES = {
+    'any': 'new AnyType()',
+    'string': 'new StringType()',
+    'integer': 'new IntegerType()',
+    'double': 'new DoubleType()',
+    'boolean': 'new BooleanType()',
+    'datetime': 'new DatetimeType()',
+    'decimal': 'new DecimalType()',
+    'list': 'new ListType(?)',
+    'set': 'new SetType(?)',
+    'map': 'new MapType(?)',
+    'optional': 'new OptionalType(?)',
+  }
+
+  def visit_type(self, rendered_type: str, type_locator: Project.TypeLocator | None) -> str:
+    if type_locator:
+      # Make sure that type descriptor for the custom type is imported.
+      type_name = f'{rendered_type}_TYPE'
+      self.type_converter.visit_type(type_name, Project.TypeLocator(type_locator.module_name, type_locator.module, type_name))
+      return type_name
+    if rendered_type.startswith('new'):
+      # Make sure that the type descriptor is imported.
+      index = rendered_type.index('(')
+      self.type_converter.visit_type('Cytonic.' + rendered_type[4:index].strip(), None)
+    return super().visit_type(rendered_type, type_locator)
+
+
+@dataclasses.dataclass
 class TypescriptGenerator:
 
   project: Project
@@ -65,6 +98,7 @@ class TypescriptGenerator:
 
   def __post_init__(self) -> None:
     self._type_converter = t.cast(TypeScriptTypeConverter, None)
+    self._type_descriptor = t.cast(TypeScriptTypeToDescriptorConverter, None)
 
   def write(self) -> None:
     opener = FileOpener.with_indicator(self.stdout, '//')
@@ -72,6 +106,7 @@ class TypescriptGenerator:
       filename = Path(self.prefix) / (module_name + '.ts')
       self._module = module
       self._type_converter = TypeScriptTypeConverter(self.project)
+      self._type_descriptor = TypeScriptTypeToDescriptorConverter(self.project, self._type_converter)
       self._writer = CodeWriter(self.indent)
       imports = self._writer.section()
       self._writer.blank()
@@ -109,6 +144,8 @@ class TypescriptGenerator:
     self._write_service(module, True)
     self._writer.blank()
     self._write_service(module, False)
+    self._writer.blank()
+    self._write_service_definition(module)
 
   def _write_type(self, type_name: str, type_: TypeConfig) -> None:
     self._write_docs(type_.docs, 0)
@@ -118,6 +155,13 @@ class TypescriptGenerator:
       for field_name, field in type_.fields.items():
         self._writer.writeline(f'{field_name}: {self._get_field_type(field.type)};')
     self._writer.writeline('}')
+    self._writer.blank()
+    self._type_converter.visit_type('Cytonic.StructType', None)
+    self._writer.writeline(f'export const {type_name}_TYPE = new StructType<{type_name}>({type_name!r}, {{')
+    with self._writer.indented():
+      for field_name, field in type_.fields.items():
+        self._writer.writeline(f'{field_name}: {{ type: {self._type_descriptor.convert_type_string(field.type)} }},')
+    self._writer.writeline('});')
 
   def _write_error(self, error_name: str, error: ErrorConfig) -> None:
     self._write_docs(error.docs, 0)
@@ -143,7 +187,6 @@ class TypescriptGenerator:
         if module.auth is not None or endpoint.auth is not None:
           credentials_type = self._type_converter.visit_type('Cytonic.Credentials', None)
           line += f'auth: {credentials_type}, '
-          self._type_converter.visit_type('Cytonic.Credentials', None)
         for arg_name, arg in (endpoint.args or {}).items():
           line += f'{arg_name}: {self._get_field_type(arg.type)}, '
         if line.endswith(', '):
@@ -155,6 +198,43 @@ class TypescriptGenerator:
         line += (return_type or 'null') + ';'
         self._writer.writeline(line)
     self._writer.writeline('}')
+
+  def _write_service_definition(self, module: ModuleConfig) -> None:
+    self._type_converter.visit_type('Cytonic.Service', None)
+    self._writer.writeline(f'const {module.name}Service_TYPE: Service = {{')
+    with self._writer.indented():
+      self._write_auth(module.auth)
+      self._writer.writeline('endpoints: {')
+      with self._writer.indented():
+        for endpoint_name, endpoint in module.endpoints.items():
+          self._writer.writeline(f'{endpoint_name}: {{')
+          with self._writer.indented():
+            self._writer.writelines([
+              f'method: {endpoint.http.method!r},',
+              f'path: {endpoint.http.path!r},',
+            ])
+            self._write_auth(endpoint.auth)
+            if endpoint.return_ is not None:
+              self._writer.writeline(f'return: {self._type_descriptor.convert_type_string(endpoint.return_)},')
+            if endpoint.args is not None:
+              self._writer.writeline('args: {')
+              with self._writer.indented():
+                for arg_name, arg in endpoint.args.items():
+                  self._writer.writeline(f'{arg_name}: {{')
+                  with self._writer.indented():
+                    if arg.kind:
+                      self._writer.writeline(f'kind: {arg.kind.name!r},')
+                    self._writer.writeline(f'type: {self._type_descriptor.convert_type_string(arg.type)},')
+                  self._writer.writeline('},')
+              self._writer.writeline('},')
+          self._writer.writeline('},')
+      self._writer.writeline('},')
+    self._writer.writeline('};')
+
+  def _write_auth(self, auth: AuthenticationConfig | None) -> None:
+    if auth is not None:
+      auth_json = databind.json.dumps(auth, AuthenticationConfig)
+      self._writer.writeline(f'auth: {auth_json},')
 
 
 def get_argument_parser() -> argparse.ArgumentParser:

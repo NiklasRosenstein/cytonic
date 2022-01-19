@@ -26,7 +26,18 @@ class HttpPath:
   _parts: list[_Str | _Param]
   _parameters: dict[str, str | None]
 
+  HTTP_METHODS = {'GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'}
+
   def __init__(self, path: str) -> None:
+    if ' ' not in path:
+      raise ValueError(('missing HTTP method' if path.startswith('/') else 'missing HTTP path') + f': {path!r}')
+    method, path = path.split(maxsplit=2)
+    if method not in self.HTTP_METHODS:
+      raise ValueError('invalid HTTP method: {method!r}')
+    if not path.startswith('/'):
+      raise ValueError('path needs to begin with a slash, got {path!r}')
+
+    self.method = method
     self._parts = []
     offset = 0
     for match in re.finditer(r'\{([A-Za-z][A-Za-z0-9_]*(:[A-Za-z][A-Za-z0-9_]*)?)\}', path):
@@ -41,10 +52,10 @@ class HttpPath:
     if offset < len(path):
       self._parts.append(HttpPath._Str(path[offset:]))
     self._parameters = {x.name: x.hint for x in self._parts if isinstance(x, HttpPath._Param)}
-    assert str(self) == path
+    assert str(self) == method + ' ' + path, (str(self), (method, path))
 
   def __str__(self) -> str:
-    return ''.join(map(str, self._parts))
+    return self.method + ' ' + self.path
 
   def __repr__(self) -> str:
     return f'Path({str(self)!r})'
@@ -60,3 +71,7 @@ class HttpPath:
     elif ctx.direction.is_serialize() and isinstance(ctx.value, HttpPath):
       return str(ctx.value)
     return NotImplemented
+
+  @property
+  def path(self) -> str:
+    return ''.join(map(str, self._parts))

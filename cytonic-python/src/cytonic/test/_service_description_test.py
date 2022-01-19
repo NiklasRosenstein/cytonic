@@ -50,8 +50,7 @@ def test_a_test_service():
   assert service.endpoints == [
     EndpointDescription(
       name='get_user',
-      method='GET',
-      path=HttpPath('/users/{id}'),
+      path=HttpPath('GET /users/{id}'),
       args={
         'auth': ArgumentDescription(ParamKind.auth, NotSet.Value, None, Credentials),
         'id': ArgumentDescription(ParamKind.path, NotSet.Value, None, str),
@@ -62,8 +61,7 @@ def test_a_test_service():
     ),
     EndpointDescription(
       name='get_users',
-      method='GET',
-      path=HttpPath('/users'),
+      path=HttpPath('GET /users'),
       args={
         'auth': ArgumentDescription(ParamKind.auth, NotSet.Value, None, Credentials),
         'search_text': ArgumentDescription(ParamKind.query, None, None, t.Optional[str]),
@@ -74,8 +72,7 @@ def test_a_test_service():
     ),
     EndpointDescription(
       name='update_user',
-      method='POST',
-      path=HttpPath('/users/{id}'),
+      path=HttpPath('POST /users/{id}'),
       args={
         'auth': ArgumentDescription(ParamKind.auth, NotSet.Value, None, Credentials),
         'id': ArgumentDescription(ParamKind.path, NotSet.Value, None, str),

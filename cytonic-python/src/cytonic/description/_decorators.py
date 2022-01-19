@@ -21,11 +21,10 @@ class AuthenticationAnnotation:
 @dataclasses.dataclass
 class EndpointAnnotation:
   """ Holds the endpoint details added with the #endpoint() decorator. """
-  method: str
   path: HttpPath
 
   def __pretty__(self) -> str:
-    return f'@endpoint("{self.method} {self.path}")'
+    return f'@endpoint("{self.path}")'
 
 
 @dataclasses.dataclass
@@ -64,10 +63,8 @@ def endpoint(http: str) -> t.Callable[[T], T]:
   HTTP method and parametrized path.
   """
 
-  method, path = http.split(maxsplit=2)
-
   def _decorator(obj: T) -> T:
-    add_annotation(obj, EndpointAnnotation, EndpointAnnotation(method, HttpPath(path)), front=True)
+    add_annotation(obj, EndpointAnnotation, EndpointAnnotation(HttpPath(http)), front=True)
     return obj
 
   return _decorator

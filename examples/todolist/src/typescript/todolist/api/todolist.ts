@@ -1,5 +1,5 @@
-import { User } from "./users";
-import { Credentials, ServiceException } from "@cytonic/runtime";
+import { User, User_TYPE } from "./users";
+import { Credentials, DatetimeType, ListType, Service, ServiceException, StringType, StructType } from "@cytonic/runtime";
 
 export interface TodoList {
   id: string;
@@ -8,10 +8,22 @@ export interface TodoList {
   created_at: Date;
 }
 
+export const TodoList_TYPE = new StructType<TodoList>('TodoList', {
+  id: { type: new StringType() },
+  name: { type: new StringType() },
+  owner: { type: User_TYPE },
+  created_at: { type: new DatetimeType() },
+});
+
 export interface TodoItem {
   text: string;
   created_at: Date;
 }
+
+export const TodoItem_TYPE = new StructType<TodoItem>('TodoItem', {
+  text: { type: new StringType() },
+  created_at: { type: new DatetimeType() },
+});
 
 export interface TodoListNotFoundError extends ServiceException {
   error_name: 'TodoList:TodoListNotFound'
@@ -37,3 +49,36 @@ export interface TodoListServiceBlocking {
   get_items(auth: Credentials, list_id: string): TodoItem[];
   set_items(auth: Credentials, list_id: string, items: TodoItem[]): null;
 }
+
+const TodoListService_TYPE: Service = {
+  auth: {"type": "oauth2_bearer"},
+  endpoints: {
+    get_lists: {
+      method: 'GET',
+      path: '/lists',
+      return: new ListType(TodoList_TYPE),
+    },
+    get_items: {
+      method: 'GET',
+      path: '/lists/{list_id}/items',
+      return: new ListType(TodoItem_TYPE),
+      args: {
+        list_id: {
+          type: new StringType(),
+        },
+      },
+    },
+    set_items: {
+      method: 'POST',
+      path: '/lists/{list_id}/items',
+      args: {
+        list_id: {
+          type: new StringType(),
+        },
+        items: {
+          type: new ListType(TodoItem_TYPE),
+        },
+      },
+    },
+  },
+};
