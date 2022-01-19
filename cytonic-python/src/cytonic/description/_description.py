@@ -7,7 +7,7 @@ import typing as t
 from nr.util.annotations import get_annotation, get_annotations
 from nr.util.singleton import NotSet
 
-from cytonic.model import AuthenticationConfig, HttpPath, ParamKind
+from cytonic.model import AuthenticationConfig, HttpPath, ParamKind, EndpointConfig, ArgumentConfig
 from cytonic.runtime import Credentials
 from ._decorators import AuthenticationAnnotation, EndpointAnnotation, EndpointArgsAnnotation, ServiceAnnotation
 
@@ -39,7 +39,7 @@ class EndpointDescription:
 
   #: The name of the endpoint, derived from the function name of which
   name: str
-  path: HttpPath
+  http: HttpPath
   args: dict[str, ArgumentDescription]
   return_type: t.Any | None
   authentication_methods: list[AuthenticationConfig]
@@ -92,7 +92,7 @@ class ServiceDescription:
           raise ValueError(f'missing "auth" parameter in endpoint {endpoint.__pretty__()}')
         service.endpoints.append(EndpointDescription(
           name=key,
-          path=endpoint.path,
+          http=endpoint.path,
           args=args,
           return_type=return_type,
           authentication_methods=authentication_methods,
@@ -115,22 +115,6 @@ def _parse_type_hints(
 ) -> tuple[dict[str, ArgumentDescription], t.Any]:
   """ Parses evaluated type hints to a list of arguments and the return type. """
 
-  args = {}
-
-  unknown_args = args_annotation.args.keys() - type_hints.keys()
-  if unknown_args:
-    raise ValueError(
-      f'some args in {endpoint.__pretty__()} annotation for {endpoint_name!r} are not accepted by '
-      f'the endpoint argument list: {unknown_args}'
-    )
-
-  unknown_path_params = endpoint.path.parameters.keys() - type_hints.keys()
-  if unknown_path_params:
-    raise ValueError(
-      f'some path parameters in the {endpoint.__pretty__()} annotation for {endpoint_name!r} are not accepted '
-      f'by the endpoint argument list: {unknown_path_params}'
-    )
-
   def _get_default(k) -> t.Any | NotSet:
     param = args_annotation.args.get(k)
     if param and param.default is not NotSet.Value:
@@ -140,35 +124,32 @@ def _parse_type_hints(
       return value
     return NotSet.Value
 
-  delayed: dict[str, t.Any] = {}
-  for k, v in type_hints.items():
-    if k == 'return':
+  args = {}
+
+  unknown_args = args_annotation.args.keys() - type_hints.keys()
+  if unknown_args:
+    raise ValueError(
+      f'some args in {endpoint.__pretty__()} annotation for {endpoint_name!r} are not accepted by '
+      f'the endpoint argument list: {unknown_args}'
+    )
+
+  # Use the EndpointConfig as a helper to determine the argument kinds.
+  endpoint_config = EndpointConfig(endpoint.path, None, {}, None, None)
+  for arg_name, type_hint in type_hints.items():
+    if arg_name == 'return' or arg_name == 'auth':
       continue
-    param = args_annotation.args.get(k)
-    if param:
-      args[k] = ArgumentDescription(param.kind, _get_default(k), param.alias, v)
-    elif k in endpoint.path.parameters:
-      args[k] = ArgumentDescription(ParamKind.path, _get_default(k), None, v)
-    else:
-      delayed[k] = v
+    param = args_annotation.args.get(arg_name)
+    endpoint_config.args[arg_name] = ArgumentConfig('?placeholder?', param.kind if param else None)
+  endpoint_config.resolve_arg_kinds()
 
-  body_args = {k for k, v in args.items() if v.kind == ParamKind.body}
-  if len(body_args) > 1:
-    raise ValueError(f'multiple body arguments found in {endpoint.__pretty__()}: {body_args}')
+  for arg_name, type_hint in type_hints.items():
+    if arg_name == 'return':
+      continue
+    param_kind = ParamKind.auth if arg_name == 'auth' else endpoint_config.args[arg_name].kind
+    assert param_kind is not None, 'should have been set by EndpointConfig.resolve_arg_kinds()'
 
-  # Now automatically assign parameter kinds for the ones that are not explicitly defined.
-  for k, v in delayed.items():
-    if v == Credentials:
-      kind = ParamKind.auth
-    elif not body_args and endpoint.path.method not in ('GET', 'HEAD', 'OPTIONS'):
-      kind = ParamKind.body
-      body_args.add(k)
-    else:
-      kind = ParamKind.query
-    sig_default = signature.parameters[k].default
-    if sig_default is inspect._empty:
-      sig_default = NotSet.Value
-    args[k] = ArgumentDescription(kind, sig_default, None, v)
+    param = args_annotation.args.get(arg_name)
+    args[arg_name] = ArgumentDescription(param_kind, _get_default(arg_name), param.alias if param else None, type_hint)
 
   return_ = type_hints.get('return')
   if return_ is type(None):

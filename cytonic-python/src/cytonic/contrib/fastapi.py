@@ -103,9 +103,9 @@ class CytonicServiceRouter(fastapi.APIRouter):
 
     for endpoint in self._service_description.endpoints:
       self.add_api_route(
-        path=str(endpoint.path),
+        path=str(endpoint.http.path),
         endpoint=self._get_endpoint_handler(endpoint),
-        methods=[endpoint.method],
+        methods=[endpoint.http.method],
         name=endpoint.name,
       )
 
