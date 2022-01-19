@@ -1,5 +1,5 @@
 import { User, User_TYPE } from "./users";
-import { Credentials, DatetimeType, ListType, Service, ServiceException, StringType, StructType } from "@cytonic/runtime";
+import { Credentials, DatetimeType, ListType, ParamKind, Service, ServiceException, StringType, StructType } from "@cytonic/runtime";
 
 export interface TodoList {
   id: string;
@@ -64,6 +64,7 @@ const TodoListService_TYPE: Service = {
       return: new ListType(TodoItem_TYPE),
       args: {
         list_id: {
+          kind: ParamKind.path,
           type: new StringType(),
         },
       },
@@ -73,9 +74,11 @@ const TodoListService_TYPE: Service = {
       path: '/lists/{list_id}/items',
       args: {
         list_id: {
+          kind: ParamKind.path,
           type: new StringType(),
         },
         items: {
+          kind: ParamKind.body,
           type: new ListType(TodoItem_TYPE),
         },
       },

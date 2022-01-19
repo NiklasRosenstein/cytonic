@@ -207,6 +207,7 @@ class TypescriptGenerator:
       self._writer.writeline('endpoints: {')
       with self._writer.indented():
         for endpoint_name, endpoint in module.endpoints.items():
+          endpoint.resolve_arg_kinds()
           self._writer.writeline(f'{endpoint_name}: {{')
           with self._writer.indented():
             self._writer.writelines([
@@ -222,8 +223,9 @@ class TypescriptGenerator:
                 for arg_name, arg in endpoint.args.items():
                   self._writer.writeline(f'{arg_name}: {{')
                   with self._writer.indented():
-                    if arg.kind:
-                      self._writer.writeline(f'kind: {arg.kind.name!r},')
+                    assert arg.kind is not None, 'should have been set by EndpointConfig.resolve_arg_kinds()'
+                    self._type_converter.visit_type('Cytonic.ParamKind', None)
+                    self._writer.writeline(f'kind: ParamKind.{arg.kind.name},')
                     self._writer.writeline(f'type: {self._type_descriptor.convert_type_string(arg.type)},')
                   self._writer.writeline('},')
               self._writer.writeline('},')

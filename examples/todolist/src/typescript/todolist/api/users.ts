@@ -1,4 +1,4 @@
-import { Credentials, Service, ServiceException, StringType, StructType } from "@cytonic/runtime";
+import { Credentials, ParamKind, Service, ServiceException, StringType, StructType } from "@cytonic/runtime";
 
 export interface User {
   id: string;
@@ -47,6 +47,7 @@ const UsersService_TYPE: Service = {
       return: User_TYPE,
       args: {
         user_id: {
+          kind: ParamKind.path,
           type: new StringType(),
         },
       },
