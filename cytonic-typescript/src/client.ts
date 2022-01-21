@@ -1,6 +1,7 @@
 
 import axios, { Axios, AxiosRequestConfig, AxiosResponse, Method } from "axios";
 import { Credentials } from "./auth";
+import { deserializeError, ServiceException } from "./errors";
 import { Service, Endpoint, ParamKind, Authentication } from "./endpoint";
 import { Locator } from "./types";
 
@@ -70,20 +71,41 @@ export class CytonicClient {
     // Render the path.
     request.url = renderPath(endpoint.path, pathArgs);
 
-    console.log('request:', request);
-
-    const response = await this.axios.request(request);
-
-    console.log('response:', response);
-
-    return null;
+    try {
+      const response = await this.axios.request(request);
+      return endpoint.return ? endpoint.return.extract(new Locator([endpointName, 'response']), response.data) : null;
+    }
+    catch (exc) {
+      const errorResponseData = (exc as any).response.data;
+      if (errorResponseData !== undefined && 'error_code' in errorResponseData) {
+        throw deserializeError(
+          errorResponseData['error_code'],
+          errorResponseData['error_name'],
+          errorResponseData['parameters'] || {}
+        );
+      }
+      throw exc;
+    }
   }
 
   private handleAuthArg(request: AxiosRequestConfig<any>, endpointAuth: Authentication | undefined, cred: Credentials): void {
     if (cred === undefined) {
       throw new Error('missing "auth" argument');
     }
-    throw new Error('not implemented');
+    if (cred.isNone()) {
+      return;
+    }
+    else if (cred.isBasicAuth()) {
+      const { username, password } = cred.getBasicAuth();
+      request.headers!['Authorization'] = `Basic ${btoa(username + ':' + password)}`;
+    }
+    else if (cred.isBearerToken()) {
+      const token = cred.getBearerToken();
+      request.headers!['Authorization'] = `Bearer ${token}`;
+    }
+    else {
+      throw new Error(`unexpected credential type: ${cred.type()}`);
+    }
   }
 
 }
@@ -106,7 +128,7 @@ export function createAsyncClient<T>(service: Service, config: ClientConfig): T 
     function handler(): Promise<any> {
       let expectedArgCount = endpoint.args === undefined ? 0 : Object.entries(endpoint.args).length;
       if (service.auth || endpoint.auth) expectedArgCount++;
-      if (arguments.length === expectedArgCount) {
+      if (arguments.length !== expectedArgCount) {
         throw new Error(`endpoint ${endpointName} expected ${expectedArgCount} argument(s) but got ${arguments.length}`);
       }
       let idx = 0;
