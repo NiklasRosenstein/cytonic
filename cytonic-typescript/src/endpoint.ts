@@ -40,6 +40,7 @@ export interface Endpoint {
   path: string,
   auth?: Authentication,
   args?: {[_: string]: Argument},
+  args_ordering?: string[],
   return?: TypeDescriptor,
 }
 

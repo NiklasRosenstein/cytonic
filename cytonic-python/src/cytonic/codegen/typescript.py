@@ -179,8 +179,9 @@ class TypescriptGenerator:
     self._writer.writeline('}')
 
   def _write_service(self, module: ModuleConfig, async_: bool) -> None:
+    type_name = f'{module.name}Service{"Async" if async_ else "Blocking"}'
     self._write_docs(module.docs, 0)
-    self._writer.writeline(f'export interface {module.name}Service{"Async" if async_ else "Blocking"} {{')
+    self._writer.writeline(f'export interface {type_name} {{')
     with self._writer.indented():
       for endpoint_name, endpoint in module.endpoints.items():
         line = f'{endpoint_name}('
@@ -198,6 +199,17 @@ class TypescriptGenerator:
         line += (return_type or 'null') + ';'
         self._writer.writeline(line)
     self._writer.writeline('}')
+    if async_:
+      self._writer.blank()
+      self._writer.writeline(f'export namespace {type_name} {{')
+      with self._writer.indented():
+        self._type_converter.visit_type('Cytonic.ClientConfig', None)
+        self._writer.writeline(f'export function client(config: ClientConfig): {type_name} {{')
+        with self._writer.indented():
+          self._type_converter.visit_type('Cytonic.createAsyncClient', None)
+          self._writer.writeline(f'return createAsyncClient<{type_name}>({module.name}Service_TYPE, config);')
+        self._writer.writeline('}')
+      self._writer.writeline('}')
 
   def _write_service_definition(self, module: ModuleConfig) -> None:
     self._type_converter.visit_type('Cytonic.Service', None)
@@ -210,10 +222,8 @@ class TypescriptGenerator:
           endpoint.resolve_arg_kinds()
           self._writer.writeline(f'{endpoint_name}: {{')
           with self._writer.indented():
-            self._writer.writelines([
-              f'method: {endpoint.http.method!r},',
-              f'path: {endpoint.http.path!r},',
-            ])
+            self._writer.writeline(f'method: {endpoint.http.method!r},')
+            self._writer.writeline(f'path: {endpoint.http.path!r},')
             self._write_auth(endpoint.auth)
             if endpoint.return_ is not None:
               self._writer.writeline(f'return: {self._type_descriptor.convert_type_string(endpoint.return_)},')
@@ -229,6 +239,7 @@ class TypescriptGenerator:
                     self._writer.writeline(f'type: {self._type_descriptor.convert_type_string(arg.type)},')
                   self._writer.writeline('},')
               self._writer.writeline('},')
+              self._writer.writeline(f'args_ordering: {list(endpoint.args)!r},')
           self._writer.writeline('},')
       self._writer.writeline('},')
     self._writer.writeline('};')

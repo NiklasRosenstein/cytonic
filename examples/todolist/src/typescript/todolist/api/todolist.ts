@@ -1,5 +1,5 @@
 import { User, User_TYPE } from "./users";
-import { Credentials, DatetimeType, ListType, ParamKind, Service, ServiceException, StringType, StructType } from "@cytonic/runtime";
+import { ClientConfig, Credentials, DatetimeType, ListType, ParamKind, Service, ServiceException, StringType, StructType, createAsyncClient } from "@cytonic/runtime";
 
 export interface TodoList {
   id: string;
@@ -41,6 +41,12 @@ export interface TodoListServiceAsync {
   set_items(auth: Credentials, list_id: string, items: TodoItem[]): Promise<void>;
 }
 
+export namespace TodoListServiceAsync {
+  export function client(config: ClientConfig): TodoListServiceAsync {
+    return createAsyncClient<TodoListServiceAsync>(TodoListService_TYPE, config);
+  }
+}
+
 /**
  * A simple todo list API.
  */
@@ -68,6 +74,7 @@ const TodoListService_TYPE: Service = {
           type: new StringType(),
         },
       },
+      args_ordering: ['list_id'],
     },
     set_items: {
       method: 'POST',
@@ -82,6 +89,7 @@ const TodoListService_TYPE: Service = {
           type: new ListType(TodoItem_TYPE),
         },
       },
+      args_ordering: ['list_id', 'items'],
     },
   },
 };

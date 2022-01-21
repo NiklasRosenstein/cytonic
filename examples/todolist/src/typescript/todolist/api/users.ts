@@ -1,4 +1,4 @@
-import { Credentials, ParamKind, Service, ServiceException, StringType, StructType } from "@cytonic/runtime";
+import { ClientConfig, Credentials, ParamKind, Service, ServiceException, StringType, StructType, createAsyncClient } from "@cytonic/runtime";
 
 export interface User {
   id: string;
@@ -23,6 +23,12 @@ export interface UserNotFoundError extends ServiceException {
 export interface UsersServiceAsync {
   me(auth: Credentials): Promise<User>;
   get_user(auth: Credentials, user_id: string): Promise<User>;
+}
+
+export namespace UsersServiceAsync {
+  export function client(config: ClientConfig): UsersServiceAsync {
+    return createAsyncClient<UsersServiceAsync>(UsersService_TYPE, config);
+  }
 }
 
 /**
@@ -51,6 +57,7 @@ const UsersService_TYPE: Service = {
           type: new StringType(),
         },
       },
+      args_ordering: ['user_id'],
     },
   },
 };
