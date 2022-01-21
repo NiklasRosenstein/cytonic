@@ -4,8 +4,7 @@ A Python framework to define REST APIs and automatically generate server side bi
 
 __Features__
 
-* Generate Python language bindings from YAML API definitions
-* Use the same bindings for clients and to implement the server side
+* Generate Python (server) and TypeScript (client) language bindings from YAML API definitions
 
 ## Quickstart
 
