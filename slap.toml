@@ -1,0 +1,5 @@
+[release]
+references = [
+  { file = "cytonic-typescript/package.json", pattern = '  "version": "{version}"'}
+]
+
