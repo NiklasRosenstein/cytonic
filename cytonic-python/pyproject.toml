@@ -35,7 +35,7 @@ typed = true
 
 [tool.slap.test]
 mypy = "mypy src/"
-pytest = "pytest src/"
+pytest = "pytest test/"
 
 [tool.mypy]
 pretty = true
