@@ -1,0 +1,39 @@
+name: Python application
+
+on:
+  push: { branches: [ develop ], tags: [ "*" ] }
+  pull_request: { branches: [ develop ] }
+
+jobs:
+  test-python:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ "3.7", "3.8", "3.9", "3.10", "3.x" ]
+    steps:
+    - uses: actions/checkout@v2
+    - uses: NiklasRosenstein/slap@gha/install/v1
+    - uses: actions/setup-python@v2
+      with: { python-version: "${{ matrix.python-version }}" }
+    - run: slap install -vv --no-venv-check
+    - run: slap test
+
+  test-typescript:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        nove-version: [ "12", "14", "16", "18" ]
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-node@v2.1.4
+      with: { node-version: "${{ matrix.node-version }}" }
+    - run: cd cytonic-typescript && yarn install && yarn run build
+
+  update-changelog:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v2
+      - uses: NiklasRosenstein/slap@gha/changelog/update/v1
