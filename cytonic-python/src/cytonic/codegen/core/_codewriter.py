@@ -28,7 +28,7 @@ class CodeWriter:
         fp.write('\n')
 
   @contextlib.contextmanager
-  def indented(self, add_level: int = 1) -> t.Iterable[None]:
+  def indented(self, add_level: int = 1) -> t.Iterator[None]:
     self._level += add_level
     try:
       yield

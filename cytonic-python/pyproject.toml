@@ -1,3 +1,41 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "cytonic"
+version = "0.2.0"
+description = "A Python framework to define REST APIs and automatically generate server side bindings and clients."
+authors = ["Niklas Rosenstein <rosensteinniklas@gmail.com>"]
+license = "MIT"
+homepage = "https://gitea.nkl.st/_/cytonic"
+keywords = ["framework", "rest", "api"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+"databind.json" = "^1.3.2"
+"nr.util" = ">=0.8.7,<1.0.0"
+pyyaml = "^5.4"
+
+[tool.poetry.dev-dependencies]
+mypy = "*"
+pytest = "*"
+types-pyyaml = "*"
+# types-uvicorn = "^0.16.0"
+
+[tool.poetry.extras]
+fastapi = ["fastapi ^0.70.1"]
+
+[tool.poetry.scripts]
+cytonic-codegen-python = "cytonic.codegen.python:main"
+cytonic-codegen-typescript = "cytonic.codegen.typescript:main"
+
+[tool.slap]
+typed = true
+
+[tool.slap.test]
+mypy = "mypy src/"
+pytest = "pytest src/"
 
 [tool.mypy]
 pretty = true

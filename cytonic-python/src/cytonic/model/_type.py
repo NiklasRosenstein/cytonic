@@ -1,4 +1,5 @@
 
+from __future__ import annotations
 import typing as t
 import dataclasses
 import itertools
@@ -29,7 +30,7 @@ def parse_type_string(type_string: str) -> tuple[str, list[str] | None]:
   while scanner and scanner.char != ']':
     scanner.next()
     open_parens = 0
-    start = scanner.index
+    start = scanner.pos
     while scanner and (scanner.char != ',' or open_parens > 0):
       if scanner.char == '[':
         open_parens += 1
@@ -40,9 +41,9 @@ def parse_type_string(type_string: str) -> tuple[str, list[str] | None]:
       scanner.next()
     if open_parens != 0:
       raise ValueError(f'bad type string: {type_string!r}')
-    if start == scanner.index:
+    if start == scanner.pos:
       break
-    parameters.append(type_string[start:scanner.index])
+    parameters.append(type_string[start.offset:scanner.pos.offset])
 
   if scanner.char != ']':
     raise ValueError(f'bad type string: {type_string!r}')
@@ -66,7 +67,7 @@ class Datatype:
   """
 
   name: str
-  parameters: list['Datatype'] = None
+  parameters: list[Datatype] | None = None
 
   def __repr__(self) -> str:
     return f'Datatype({str(self)!r})'

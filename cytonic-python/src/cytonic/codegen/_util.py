@@ -1,4 +1,5 @@
 
+from __future__ import annotations
 import abc
 import contextlib
 import dataclasses
@@ -22,7 +23,7 @@ class FileOpener:
   def open(self, filename: Path | str) -> t.Generator[t.TextIO, None, None]:
     if self.stdout:
       if self.open_stdout:
-        self.open_stdout(filename)
+        self.open_stdout(str(filename))
       yield sys.stdout
     else:
       filename = Path(filename)
@@ -33,7 +34,7 @@ class FileOpener:
         yield fp
 
   @staticmethod
-  def with_indicator(stdout: bool, stdout_indicator: str, fs_indicator: str = 'Writing ') -> None:
+  def with_indicator(stdout: bool, stdout_indicator: str, fs_indicator: str = 'Writing ') -> FileOpener:
     return FileOpener(
       stdout,
       lambda fn: print(f'\n{stdout_indicator} {fn}'),
@@ -53,6 +54,7 @@ class TypeConverter(t.Generic[T]):
       raise ValueError(f'what\'s dis? {type_string!r}')
 
     type_name, parameters_string = match.groups()
+    assert isinstance(type_name, str) and isinstance(parameters_string, str)
     parameters = None if parameters_string is None else [x.strip() for x in parameters_string.split(',')]
 
     return self.create_type(type_name, parameters)

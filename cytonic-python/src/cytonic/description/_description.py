@@ -135,6 +135,7 @@ def _parse_type_hints(
 
   # Use the EndpointConfig as a helper to determine the argument kinds.
   endpoint_config = EndpointConfig(endpoint.path, None, {}, None, None)
+  assert endpoint_config.args is not None
   for arg_name, type_hint in type_hints.items():
     if arg_name == 'return' or arg_name == 'auth':
       continue

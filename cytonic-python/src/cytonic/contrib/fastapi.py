@@ -164,7 +164,7 @@ class CytonicServiceRouter(fastapi.APIRouter):
       else:
         continue
       defaults[arg_name] = value
-    _handler.__kwdefaults__ = defaults  # type: ignore
+    _handler.__kwdefaults__ = defaults
 
     return _handler
 

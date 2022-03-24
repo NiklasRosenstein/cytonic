@@ -192,7 +192,7 @@ class PythonTypeConverter(DefaultTypeConverter):
     assert self.current_module is not None
     assert self.modules is not None
 
-  def visit_type(self, rendered_type: str, type_locator: Project.TypeLocator) -> None:
+  def visit_type(self, rendered_type: str, type_locator: Project.TypeLocator) -> str:
     if type_locator:
       for key, value in self.modules.items():
         if type_locator.module in value:

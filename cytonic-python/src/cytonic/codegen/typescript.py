@@ -46,7 +46,7 @@ class TypeScriptTypeConverter(DefaultTypeConverter):
     super().__post_init__()
     self.imports = set[TypeScriptImport]()
 
-  def visit_type(self, rendered_type: str, type_locator: Project.TypeLocator | None) -> None:
+  def visit_type(self, rendered_type: str, type_locator: Project.TypeLocator | None) -> str:
     if type_locator:
       self.imports.add(TypeScriptImport('./' + type_locator.module_name, type_locator.type_name))
     elif rendered_type.startswith('Cytonic.'):
@@ -119,7 +119,7 @@ class TypescriptGenerator:
       with opener.open(filename) as fp:
         self._writer.flush(fp)
 
-  def _get_field_type(self, type_string: str) -> None:
+  def _get_field_type(self, type_string: str) -> str:
     return self._type_converter.convert_type_string(type_string)
 
   def _write_docs(self, docs: str | None, num_blanks: int = 0) -> None:
@@ -137,8 +137,8 @@ class TypescriptGenerator:
       self._write_type(type_name, type_)
       self._writer.blank()
 
-    for error_name, type_ in module.errors.items():
-      self._write_error(error_name, type_)
+    for error_name, error_type in module.errors.items():
+      self._write_error(error_name, error_type)
       self._writer.blank()
 
     self._write_service(module, True)
@@ -152,14 +152,14 @@ class TypescriptGenerator:
     type_.validate()
     self._writer.writeline(f'export {"enum" if type_.values is not None else "interface"} {type_name} {{')
     with self._writer.indented():
-      for field_name, field in type_.fields.items():
+      for field_name, field in (type_.fields or {}).items():
         self._writer.writeline(f'{field_name}: {self._get_field_type(field.type)};')
     self._writer.writeline('}')
     self._writer.blank()
     self._type_converter.visit_type('Cytonic.StructType', None)
     self._writer.writeline(f'export const {type_name}_TYPE = new StructType<{type_name}>({type_name!r}, {{')
     with self._writer.indented():
-      for field_name, field in type_.fields.items():
+      for field_name, field in (type_.fields or {}).items():
         self._writer.writeline(f'{field_name}: {{ type: {self._type_descriptor.convert_type_string(field.type)} }},')
     self._writer.writeline('});')
 
@@ -246,7 +246,7 @@ class TypescriptGenerator:
 
   def _write_auth(self, auth: AuthenticationConfig | None) -> None:
     if auth is not None:
-      auth_json = databind.json.dumps(auth, AuthenticationConfig)
+      auth_json = databind.json.dumps(auth, AuthenticationConfig)  # type: ignore
       self._writer.writeline(f'auth: {auth_json},')
 
 
